@@ -7,7 +7,7 @@ from typing import List, Optional, Dict
 import os
 from paper_utils import get_paper_info, search_papers, EventIndex
 
-app = FastAPI(title="ACL Paper Search API")
+app = FastAPI(title="ACL Event Paper Search API")
 
 # Add CORS middleware
 app.add_middleware(

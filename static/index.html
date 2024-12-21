@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ACL Paper Search</title>
+    <title>ACL Event Paper Search</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/static/style.css">
@@ -13,7 +13,7 @@
     <nav class="navbar" role="navigation" aria-label="main navigation">
         <div class="navbar-brand">
             <div class="navbar-item">
-                <h1 class="title is-4">ACL Paper Search</h1>
+                <h1 class="title is-4">ACL Event Paper Search</h1>
             </div>
         </div>
     </nav>
@@ -21,16 +21,12 @@
     <section class="section">
         <div class="container is-widescreen">
             <div class="box">
-                <h2 class="title is-4">Step 1: Load Papers from Event</h2>
+                <h2 class="title is-4 mb-4">Step 1: Load Papers from ACL Event</h2>
                 <form id="eventForm">
-                    <div class="field">
-                        <label class="label">ACL Anthology Event URL:</label>
-                        <div class="control">
-                            <input class="input" type="url" id="eventUrl" name="eventUrl" 
-                                placeholder="https://aclanthology.org/events/..." required>
+                    <div class="field has-addons">
+                        <div class="control is-expanded">
+                            <input class="input" type="url" id="eventUrl" placeholder="Enter ACL Anthology event URL" required>
                         </div>
-                    </div>
-                    <div class="field">
                         <div class="control">
                             <button type="submit" class="button is-primary" id="loadButton">
                                 <span>Load Papers</span>
@@ -41,43 +37,29 @@
                 </form>
 
                 <div class="buttons mt-4">
-                    <button id="viewAllBtn" class="button is-info is-outlined" style="display: none;">
-                        <span class="icon">
-                            <i class="bi bi-eye"></i>
-                        </span>
-                        <span>View All Papers</span>
-                    </button>
-                    <button id="hideAllBtn" class="button is-info is-outlined" style="display: none;">
-                        <span class="icon">
-                            <i class="bi bi-eye-slash"></i>
-                        </span>
-                        <span>Hide Papers</span>
-                    </button>
+                    <button id="viewAllBtn" class="button is-info is-light" style="display: none;">View All Papers</button>
+                    <button id="hideAllBtn" class="button is-info is-light" style="display: none;">Hide All Papers</button>
                 </div>
-            </div>
 
-            <div id="searchSection" class="box" style="display: none;">
-                <h2 class="title is-4">Step 2: Search Papers</h2>
-                <form id="searchForm">
-                    <div class="field">
-                        <label class="label">Search Query:</label>
-                        <div class="control">
-                            <input class="input" type="text" id="searchQuery" name="searchQuery" 
-                                placeholder="Enter your search query..." required>
+                <div id="searchSection" class="mt-5" style="display: none;">
+                    <h2 class="title is-4 mb-4">Step 2: Search Through Papers</h2>
+                    <form id="searchForm">
+                        <div class="field has-addons">
+                            <div class="control is-expanded">
+                                <input class="input" type="text" id="searchQuery" placeholder="Enter your search query" required>
+                            </div>
+                            <div class="control">
+                                <button type="submit" class="button is-primary" id="searchButton">
+                                    <span>Search</span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="field">
-                        <div class="control">
-                            <button type="submit" class="button is-primary" id="searchButton">
-                                <span>Search</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div id="step2Result" class="help"></div>
-                </form>
+                        <div id="step2Result" class="help"></div>
+                    </form>
 
-                <div id="searchResults" class="mt-4"></div>
-                <div id="pagination" class="mt-5"></div>
+                    <div id="searchResults" class="mt-4"></div>
+                    <div id="pagination" class="mt-5"></div>
+                </div>
             </div>
         </div>
     </section>
