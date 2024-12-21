@@ -134,15 +134,6 @@ body {
     cursor: not-allowed;
 }
 
-.loading {
-    opacity: 0.7;
-    pointer-events: none;
-}
-
-.help.is-success {
-    color: #48c774;
-}
-
 .button-group {
     display: flex;
     gap: 1rem;
@@ -240,4 +231,15 @@ input {
     .container.is-widescreen {
         max-width: 1344px;
     }
+}
+
+/* Loading state */
+.is-loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+/* Help text */
+.help.is-success {
+    color: #48c774;
 }

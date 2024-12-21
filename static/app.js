@@ -9,6 +9,8 @@ const hideAllBtn = document.getElementById('hideAllBtn');
 const step1Result = document.getElementById('step1Result');
 const step2Result = document.getElementById('step2Result');
 const searchQuery = document.getElementById('searchQuery');
+const loadButton = document.getElementById('loadButton');
+const searchButton = document.getElementById('searchButton');
 
 // State
 let currentPage = 1;
@@ -30,17 +32,88 @@ function clearResults(clearSearchInput = false) {
     }
 }
 
+// Show/hide loading state for load papers button
+function setLoadingPapers(isLoading) {
+    loadButton.classList.toggle('is-loading', isLoading);
+    if (isLoading) {
+        loadButton.querySelector('span').textContent = 'Loading papers...';
+    } else {
+        loadButton.querySelector('span').textContent = 'Load Papers';
+    }
+}
+
+// Show/hide loading state for search button
+function setLoadingSearch(isLoading) {
+    searchButton.classList.toggle('is-loading', isLoading);
+    if (isLoading) {
+        searchButton.querySelector('span').textContent = 'Searching...';
+    } else {
+        searchButton.querySelector('span').textContent = 'Search';
+    }
+}
+
 // Event Listeners
 eventForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const eventUrl = document.getElementById('eventUrl').value;
-    await loadPapers(eventUrl);
+
+    try {
+        setLoadingPapers(true);
+        
+        const response = await fetch(`/refresh/${encodeURIComponent(eventUrl)}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            setLoadingPapers(true);
+            currentEventUrl = eventUrl;  // Store the current event URL
+            step1Result.textContent = `Successfully loaded ${data.paper_count} papers`;
+            step1Result.className = 'step-result success';
+            searchSection.style.display = 'block';
+            viewAllBtn.style.display = 'inline-block';
+            
+            // Get all papers for the view all functionality
+            const papersResponse = await fetch(`/papers/${encodeURIComponent(eventUrl)}?skip=0&limit=1000`);
+            allPapers = await papersResponse.json();
+            clearResults(true); // Clear everything including search input when loading new papers
+        } else {
+            step1Result.textContent = `Error: ${data.detail}`;
+        }
+    } catch (error) {
+        step1Result.textContent = `Error: ${error.message}`;
+    } finally {
+        setLoadingPapers(false);
+    }
 });
 
 searchForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const query = document.getElementById('searchQuery').value;
-    await searchPapers(query);
+
+    try {
+        setLoadingSearch(true);
+        
+        const response = await fetch('/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: query,
+                event_url: currentEventUrl,  // Include the event URL in the search
+                top_k: 50
+            }),
+        });
+        
+        const results = await response.json();
+        filteredPapers = results;
+        step2Result.textContent = `Found ${filteredPapers.length} relevant papers`;
+        step2Result.className = 'step-result success';
+        displayResults(1);
+    } catch (error) {
+        searchResults.innerHTML = `Error: ${error.message}`;
+    } finally {
+        setLoadingSearch(false);
+    }
 });
 
 viewAllBtn.addEventListener('click', () => {
@@ -63,68 +136,6 @@ searchQuery.addEventListener('input', () => {
 });
 
 // Functions
-async function loadPapers(eventUrl) {
-    try {
-        step1Result.textContent = 'Loading papers...';
-        step1Result.className = 'step-result';
-        eventForm.classList.add('loading');
-        viewAllBtn.style.display = 'none';
-        hideAllBtn.style.display = 'none';
-        
-        const response = await fetch(`/refresh/${encodeURIComponent(eventUrl)}`);
-        const data = await response.json();
-        
-        if (response.ok) {
-            currentEventUrl = eventUrl;  // Store the current event URL
-            step1Result.textContent = `Successfully loaded ${data.paper_count} papers`;
-            step1Result.className = 'step-result success';
-            searchSection.style.display = 'block';
-            viewAllBtn.style.display = 'inline-block';
-            
-            // Get all papers for the view all functionality
-            const papersResponse = await fetch(`/papers/${encodeURIComponent(eventUrl)}?skip=0&limit=1000`);
-            allPapers = await papersResponse.json();
-            clearResults(true); // Clear everything including search input when loading new papers
-        } else {
-            step1Result.textContent = `Error: ${data.detail}`;
-        }
-    } catch (error) {
-        step1Result.textContent = `Error: ${error.message}`;
-    } finally {
-        eventForm.classList.remove('loading');
-    }
-}
-
-async function searchPapers(query) {
-    try {
-        searchResults.innerHTML = 'Searching...';
-        searchForm.classList.add('loading');
-        step2Result.className = 'step-result';
-        
-        const response = await fetch('/search', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                query: query,
-                event_url: currentEventUrl,  // Include the event URL in the search
-                top_k: 50
-            }),
-        });
-        
-        const results = await response.json();
-        filteredPapers = results;
-        step2Result.textContent = `Found ${filteredPapers.length} relevant papers`;
-        step2Result.className = 'step-result success';
-        displayResults(1);
-    } catch (error) {
-        searchResults.innerHTML = `Error: ${error.message}`;
-    } finally {
-        searchForm.classList.remove('loading');
-    }
-}
-
 function displayResults(page) {
     currentPage = page;
     const papers = isViewingAll ? allPapers : filteredPapers;
