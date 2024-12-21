@@ -1,0 +1,243 @@
+/* Custom styles on top of Bulma CSS */
+:root {
+    --spacing: 1rem;
+    --typography-spacing-vertical: 1.5rem;
+    --background-color: #f5f5f5;
+    --text-color: #333;
+    --primary-color: #485fc7;
+    --primary-hover: #5a6fd9;
+    --primary-focus: rgba(72, 95, 199, 0.125);
+    --primary-inverse: #fff;
+    --card-background-color: #fff;
+    --card-border-color: #ddd;
+    --border-radius: 6px;
+}
+
+body {
+    min-height: 100vh;
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+.container {
+    max-width: 1344px;
+    margin: 0 auto;
+}
+
+.step-container {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border: 1px solid var(--card-border-color);
+    border-radius: var(--border-radius);
+    background: var(--card-background-color);
+}
+
+.step-container h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--card-border-color);
+}
+
+.step-content {
+    padding: 0.5rem 0;
+}
+
+.step-result {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.step-result.success {
+    color: var(--primary-color);
+}
+
+.step-result.success::before {
+    content: "✓";
+    margin-right: 0.5rem;
+}
+
+.action-buttons {
+    margin-top: 1rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: var(--primary-color);
+    transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+    opacity: 0.8;
+    transform: scale(1.1);
+    color: var(--primary-hover);
+}
+
+.paper-card {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: var(--border-radius);
+    background: var(--card-background-color);
+    box-shadow: 0 2px 3px rgba(10, 10, 10, 0.1);
+}
+
+.paper-card h4 {
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.paper-card .score {
+    color: #4a4a4a;
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+}
+
+.paper-card .abstract {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #4a4a4a;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin: 2rem 0;
+}
+
+.pagination-arrow {
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0.5rem;
+    color: var(--primary-color);
+    background: none;
+    border: none;
+    transition: transform 0.2s ease;
+}
+
+.pagination-arrow:not([disabled]):hover {
+    transform: scale(1.2);
+    color: var(--primary-hover);
+}
+
+.pagination-arrow[disabled] {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.help.is-success {
+    color: #48c774;
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+[type="submit"],
+button:not(.icon-button):not(.outline) {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    color: var(--primary-inverse) !important;
+}
+
+[type="submit"]:hover,
+button:not(.icon-button):not(.outline):hover {
+    background-color: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
+}
+
+button.outline {
+    background: none !important;
+    color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+button.outline:hover {
+    background-color: var(--primary-focus) !important;
+    border-color: var(--primary-hover) !important;
+    color: var(--primary-hover) !important;
+}
+
+nav {
+    background-color: var(--card-background-color);
+    border-bottom: 1px solid var(--card-border-color);
+    margin-bottom: 2rem;
+    padding: 1rem;
+    border-radius: var(--border-radius);
+}
+
+nav strong {
+    color: var(--primary-color);
+}
+
+form {
+    margin-bottom: 1rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+input {
+    margin-bottom: 1rem;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    border: 1px solid var(--card-border-color);
+}
+
+.paper-card h3 {
+    margin: 0;
+    margin-bottom: 0.5rem;
+    color: var(--primary-color);
+}
+
+.paper-card h3 a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.paper-card h3 a:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
+
+.paper-card h4 a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.paper-card h4 a:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: start;
+}
+
+@media screen and (min-width: 1024px) {
+    .container.is-widescreen {
+        max-width: 1344px;
+    }
+}
