@@ -14,14 +14,11 @@
             margin-top: 2rem;
         }
         .paper-card {
-            margin-bottom: 1rem;
-            padding: 1rem;
             border: 1px solid #eee;
             border-radius: 4px;
         }
         .paper-title {
             font-weight: bold;
-            margin-bottom: 0.5rem;
         }
         .paper-abstract {
             color: #666;
@@ -109,8 +106,6 @@
         }
         .paper-title {
             cursor: pointer;
-            padding: 0.5rem 0;
-            margin-bottom: 0.5rem;
         }
         .paper-title:hover {
             background-color: #f5f5f5;
@@ -277,6 +272,44 @@
             border-radius: 4px;
             animation: pulse 1.5s infinite;
         }
+        
+        .paper-card {
+            cursor: pointer;
+        }
+        
+        .paper-card .paper-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .paper-card .paper-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .paper-card .paper-title {
+            font-weight: bold;
+        }
+        
+        .paper-card .paper-authors {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .paper-card .paper-abstract {
+            display: none;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .paper-card.is-expanded .paper-abstract {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -355,7 +388,7 @@
                     </div>
                     <p class="help">Use natural language to search for semantically similar papers</p>
                 </div>
-                <div id="papers-list" class="mt-4 is-hidden"></div>
+                <div id="papers-results"></div>
                 <p id="results-count" class="is-hidden"></p>
                 <!-- Pagination -->
                 <nav class="pagination is-centered is-hidden" id="pagination-controls" role="navigation" aria-label="pagination">
@@ -433,32 +466,35 @@
         }
 
         function displaySearchResults(data) {
-            const resultsDiv = document.getElementById('papers-list');
-            const results = data.results || [];
+            const resultsDiv = document.getElementById('papers-results');
+            const results = data.results || data;
             
             if (results.length === 0) {
                 resultsDiv.innerHTML = '<div class="notification">No papers found.</div>';
                 return;
             }
             
-            const html = results.map(paper => `
-                <div class="box">
-                    <article class="media">
-                        <div class="media-content">
-                            <div class="content">
-                                <p>
-                                    <strong><a href="${paper.url}" target="_blank">${paper.title}</a></strong>
-                                    <br>
-                                    <small>${paper.authors.join(', ')}</small>
-                                    <br>
-                                    ${paper.abstract}
-                                    ${paper.score ? `<br><small class="has-text-info">Relevance Score: ${paper.score.toFixed(3)}</small>` : ''}
-                                </p>
+            let html = '<div class="papers-list mt-4">';
+            results.forEach(paper => {
+                html += `
+                    <div class="paper-card" onclick="togglePaperAbstract(this)">
+                        <div class="paper-header">
+                            <span class="icon">
+                                <i class="fas fa-chevron-right"></i>
+                            </span>
+                            <div class="paper-info">
+                                <a href="${paper.url}" target="_blank" onclick="event.stopPropagation()" class="paper-title">${paper.title}</a>
+                                <div class="paper-authors">${paper.authors.join(', ')}</div>
+                                ${paper.score ? `<small class="has-text-info">Relevance Score: ${paper.score.toFixed(3)}</small>` : ''}
                             </div>
                         </div>
-                    </article>
-                </div>
-            `).join('');
+                        <div class="paper-abstract">
+                            ${paper.abstract}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
             
             resultsDiv.innerHTML = html;
             
@@ -505,7 +541,7 @@
             const input = document.getElementById('eventUrl');
             const tabs = document.getElementById('tabs');
             const searchContainer = document.getElementById('search-container');
-            const papersList = document.getElementById('papers-list');
+            const papersResults = document.getElementById('papers-results');
             
             // Set loading state immediately
             button.classList.add('is-loading');
@@ -541,7 +577,6 @@
                 // Show tabs and search box
                 tabs.classList.remove('is-hidden');
                 searchContainer.classList.remove('is-hidden');
-                papersList.classList.remove('is-hidden');
                 
                 // Update papers count in tab
                 document.getElementById('papers-count').textContent = data.length;
@@ -561,31 +596,38 @@
         }
         
         function showPapers(papersList) {
-            const resultsDiv = document.getElementById('papers-list');
+            const resultsDiv = document.getElementById('papers-results');
             if (!papersList || papersList.length === 0) {
                 resultsDiv.innerHTML = '<div class="notification">No papers found.</div>';
                 return;
             }
-            
-            const html = papersList.map(paper => `
-                <div class="box">
-                    <article class="media">
-                        <div class="media-content">
-                            <div class="content">
-                                <p>
-                                    <strong><a href="${paper.link}" target="_blank">${paper.title}</a></strong>
-                                    <br>
-                                    <small>${paper.authors.join(', ')}</small>
-                                    <br>
-                                    ${paper.abstract}
-                                </p>
+
+            let html = '<div class="papers-list mt-4">';
+            papersList.forEach(paper => {
+                html += `
+                    <div class="paper-card" onclick="togglePaperAbstract(this)">
+                        <div class="paper-header">
+                            <span class="icon">
+                                <i class="fas fa-chevron-right"></i>
+                            </span>
+                            <div class="paper-info">
+                                <a href="${paper.url}" target="_blank" onclick="event.stopPropagation()" class="paper-title">${paper.title}</a>
+                                <div class="paper-authors">${paper.authors.join(', ')}</div>
                             </div>
                         </div>
-                    </article>
-                </div>
-            `).join('');
+                        <div class="paper-abstract">
+                            ${paper.abstract}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
             
             resultsDiv.innerHTML = html;
+            resultsDiv.classList.remove('is-hidden');
+            
+            // Update papers count
+            document.getElementById('papers-count').textContent = papersList.length;
         }
         
         function switchView(view) {
@@ -936,6 +978,16 @@
                 if (currentPage < totalPages) {
                     performSearch(currentQuery, currentPage + 1);
                 }
+            });
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.paper-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    this.classList.toggle('is-expanded');
+                    const abstract = this.querySelector('.paper-abstract');
+                    abstract.classList.toggle('is-expanded');
+                });
             });
         });
     </script>
