@@ -134,6 +134,119 @@
         .tag {
             margin-left: auto;
         }
+        /* Recluster button styling */
+        .recluster-btn {
+            background-color: #3273dc !important;
+            color: white !important;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .recluster-btn:hover {
+            background-color: #2366d1 !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .recluster-btn.is-loading {
+            opacity: 0.8;
+        }
+        /* Skeleton loading animation */
+        .skeleton-cluster {
+            animation: pulse 1.5s infinite;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            height: 100px;
+        }
+        @keyframes pulse {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* Cluster expansion styles */
+        .cluster-papers {
+            display: none;
+            margin-top: 1rem;
+        }
+        .cluster-papers.is-expanded {
+            display: block;
+        }
+        .paper-list-item {
+            cursor: pointer;
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s ease;
+        }
+        .paper-list-item:hover {
+            background-color: #f5f5f5;
+        }
+        .paper-list-item:last-child {
+            border-bottom: none;
+        }
+        .paper-list-item .paper-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .paper-list-item .icon {
+            transition: transform 0.2s ease;
+        }
+        .paper-list-item.is-expanded .icon {
+            transform: rotate(90deg);
+        }
+        .paper-abstract {
+            display: none;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .paper-abstract.is-expanded {
+            display: block;
+        }
+        .cluster-header {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .cluster-header:hover {
+            background-color: #f5f5f5;
+        }
+        .cluster-header .icon i {
+            transition: transform 0.2s ease;
+        }
+        .cluster-header.is-expanded .icon i {
+            transform: rotate(90deg);
+        }
+        
+        .has-addons {
+            display: flex;
+            align-items: stretch;
+        }
+        .has-addons .control {
+            margin: 0;
+        }
+        .has-addons .control:not(:last-child) {
+            flex-grow: 1;
+        }
+        .has-addons .control:not(:first-child):not(:last-child) .input {
+            border-radius: 0;
+        }
+        .has-addons .control:first-child .input {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        .has-addons .control:last-child .button {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+        .button.is-info {
+            background-color: #00d1b2;
+        }
+        .button.is-info:hover {
+            background-color: #00c4a7;
+        }
     </style>
 </head>
 <body>
@@ -166,41 +279,35 @@
                 </ul>
             </div>
             
-            <!-- Search Box - Moved here after tabs -->
-            <div id="search-container" class="is-hidden">
-                <div class="box">
-                    <form id="searchForm">
-                        <div class="field">
-                            <label class="label">Search Papers</label>
-                            <div class="field has-addons">
-                                <div class="control is-expanded">
-                                    <input class="input" type="text" id="searchInput" 
-                                        placeholder="Enter your search query (e.g., 'language models for code generation')">
-                                </div>
-                                <div class="control">
-                                    <button type="submit" class="button is-info" id="searchButton">
-                                        <span class="icon">
-                                            <i class="fas fa-search"></i>
-                                        </span>
-                                        <span>Search</span>
-                                    </button>
-                                </div>
-                            </div>
-                            <p class="help">Use natural language to search for semantically similar papers</p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
             <!-- Papers View -->
             <div id="papers-view" class="tab-content is-active">
+                <div class="box">
+                    <h3 class="title is-4">Search Papers</h3>
+                    <div class="field has-addons">
+                        <div class="control is-expanded">
+                            <input class="input" type="text" id="search-input" 
+                                placeholder="Enter your search query (e.g., 'language models for code generation')">
+                        </div>
+                        <div class="control">
+                            <button class="button is-info" id="search-button">
+                                <span class="icon">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <span>Search</span>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="help">Use natural language to search for semantically similar papers</p>
+                </div>
                 <div id="papers-list" class="mt-4"></div>
                 <p id="results-count" class="is-hidden"></p>
                 <!-- Pagination -->
-                <nav class="pagination is-centered mt-4 is-hidden" role="navigation" aria-label="pagination" id="pagination-controls">
-                    <a class="pagination-previous" id="prev-page">Previous</a>
-                    <a class="pagination-next" id="next-page">Next</a>
-                    <ul class="pagination-list" id="page-numbers"></ul>
+                <nav class="pagination is-centered is-hidden" id="pagination-controls" role="navigation" aria-label="pagination">
+                    <button class="pagination-previous" id="prev-page" disabled>Previous</button>
+                    <button class="pagination-next" id="next-page" disabled>Next</button>
+                    <ul class="pagination-list" id="page-numbers">
+                        <!-- Page numbers will be dynamically added here -->
+                    </ul>
                 </nav>
             </div>
             
@@ -225,13 +332,14 @@
         let currentQuery = '';
         
         async function performSearch(searchTerm, page = 1) {
-            const searchInput = document.getElementById('searchInput');
-            const searchButton = document.getElementById('searchButton');
+            const searchInput = document.getElementById('search-input');
+            const searchButton = document.getElementById('search-button');
+            const resultsDiv = document.getElementById('papers-list');
             
             try {
                 // Show loading state
                 searchButton.classList.add('is-loading');
-                searchButton.disabled = true;
+                searchInput.disabled = true;
                 
                 const response = await fetch('/search', {
                     method: 'POST',
@@ -239,90 +347,100 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        query: searchTerm || searchInput.value.trim(),
+                        query: searchTerm,
                         page: page,
                         per_page: 10
                     })
                 });
                 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Search failed');
+                    throw new Error('Search failed');
                 }
                 
                 const data = await response.json();
                 
-                // Update results
-                const resultsDiv = document.getElementById('papers-list');
-                resultsDiv.innerHTML = data.results.map(paper => `
-                    <div class="box">
-                        <article class="media">
-                            <div class="media-content">
-                                <div class="content">
-                                    <p>
-                                        <strong><a href="${paper.url}" target="_blank">${paper.title}</a></strong>
-                                        <br>
-                                        <small>${paper.authors.join(', ')}</small>
-                                        <br>
-                                        ${paper.abstract}
-                                        ${paper.score ? `<br><small class="has-text-info">Relevance Score: ${paper.score.toFixed(3)}</small>` : ''}
-                                    </p>
-                                </div>
-                            </div>
-                        </article>
-                    </div>
-                `).join('');
+                // Update current query for pagination
+                currentQuery = searchTerm;
+                currentPage = page;
                 
-                // Show number of results
-                const resultsCount = document.getElementById('results-count');
-                resultsCount.textContent = `Found ${data.total} papers`;
-                resultsCount.classList.remove('is-hidden');
-                
-                // Update pagination
-                updatePagination(data.page, data.total_pages);
+                // Display results
+                displaySearchResults(data);
                 
             } catch (error) {
                 console.error('Search error:', error);
-                showStatusMessage(error.message, 'danger');
+                showStatusMessage('Failed to perform search', 'danger');
             } finally {
+                // Reset loading state
                 searchButton.classList.remove('is-loading');
-                searchButton.disabled = false;
+                searchInput.disabled = false;
+            }
+        }
+
+        function displaySearchResults(data) {
+            const resultsDiv = document.getElementById('papers-list');
+            const results = data.results || [];
+            
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="notification">No papers found.</div>';
+                return;
+            }
+            
+            const html = results.map(paper => `
+                <div class="box">
+                    <article class="media">
+                        <div class="media-content">
+                            <div class="content">
+                                <p>
+                                    <strong><a href="${paper.url}" target="_blank">${paper.title}</a></strong>
+                                    <br>
+                                    <small>${paper.authors.join(', ')}</small>
+                                    <br>
+                                    ${paper.abstract}
+                                    ${paper.score ? `<br><small class="has-text-info">Relevance Score: ${paper.score.toFixed(3)}</small>` : ''}
+                                </p>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            `).join('');
+            
+            resultsDiv.innerHTML = html;
+            
+            // Show number of results
+            const resultsCount = document.getElementById('results-count');
+            resultsCount.textContent = `Found ${data.total || results.length} papers`;
+            resultsCount.classList.remove('is-hidden');
+            
+            // Update pagination
+            if (data.total_pages > 1) {
+                updatePagination(data.page, data.total_pages);
+                document.getElementById('pagination-controls').classList.remove('is-hidden');
+            } else {
+                document.getElementById('pagination-controls').classList.add('is-hidden');
             }
         }
 
         function updatePagination(page, totalPages) {
-            const paginationControls = document.getElementById('pagination-controls');
+            currentPage = page;
+            const paginationNav = document.getElementById('pagination-controls');
+            const prevButton = document.getElementById('prev-page');
+            const nextButton = document.getElementById('next-page');
+            const pageNumbers = document.getElementById('page-numbers');
             
-            if (!papers.length) {
-                paginationControls.classList.add('is-hidden');
-                return;
-            }
+            // Update prev/next buttons
+            prevButton.disabled = page <= 1;
+            nextButton.disabled = page >= totalPages;
             
-            const prevBtn = document.querySelector('.pagination-previous');
-            const nextBtn = document.querySelector('.pagination-next');
-            const pageList = document.querySelector('.pagination-list');
-            
-            // Update buttons state
-            prevBtn.disabled = page <= 1;
-            nextBtn.disabled = page >= totalPages;
-            
-            // Clear existing page numbers
-            pageList.innerHTML = '';
-            
-            // Add page numbers
+            // Update page numbers
+            let pagesHtml = '';
             for (let i = 1; i <= totalPages; i++) {
-                const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.className = `pagination-link ${i === page ? 'is-current' : ''}`;
-                a.setAttribute('aria-label', `Page ${i}`);
-                a.textContent = i;
-                a.onclick = () => performSearch(currentQuery, i);
-                li.appendChild(a);
-                pageList.appendChild(li);
+                if (i === page) {
+                    pagesHtml += `<li><a class="pagination-link is-current">${i}</a></li>`;
+                } else {
+                    pagesHtml += `<li><a class="pagination-link" onclick="performSearch('${currentQuery}', ${i})">${i}</a></li>`;
+                }
             }
-            
-            // Show pagination only if we have more than one page
-            paginationControls.classList.toggle('is-hidden', totalPages <= 1);
+            pageNumbers.innerHTML = pagesHtml;
         }
 
         async function loadPapers(url) {
@@ -362,9 +480,6 @@
                 
                 // Start clustering in background
                 getClusters();
-                
-                 // Show the search box after papers have been loaded
-                searchBox.classList.remove('is-hidden'); // Added: Show search box
                 
                 // Show papers tab explicitly
                 switchView('papers');
@@ -488,70 +603,189 @@
                 
                 html += `
                     <div class="box cluster">
-                        <div class="cluster-header" data-cluster-id="${index}">
+                        <div class="cluster-header" onclick="toggleCluster(this)">
                             <h4 class="title is-4">
                                 <span class="icon">
                                     <i class="fas fa-chevron-right"></i>
                                 </span>
                                 ${cluster.task}
                                 <span class="tag is-info is-light">${clusterPapers.length} papers</span>
+                                ${cluster.can_recluster ? `
+                                    <button class="button is-info recluster-btn ml-2" 
+                                            onclick="event.stopPropagation()"
+                                            data-iteration="1" 
+                                            data-paper-ids='${JSON.stringify(cluster.paper_ids)}'>
+                                        <span class="icon">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </span>
+                                        <span>Recluster</span>
+                                    </button>` : ''}
                             </h4>
                         </div>
-                        <div class="cluster-content is-hidden" id="cluster-${index}">
-                            <div class="papers">
-                                ${clusterPapers.map((paper, paperIndex) => `
-                                    <div class="paper-item">
-                                        <p class="paper-title" data-paper-id="${index}-${paperIndex}">
-                                            <span class="icon">
-                                                <i class="fas fa-chevron-right"></i>
-                                            </span>
-                                            <a href="${paper.link}" target="_blank">${paper.title}</a>
-                                            <small class="has-text-grey">${paper.authors.join(', ')}</small>
-                                        </p>
-                                        <div class="paper-abstract is-hidden">
-                                            ${paper.abstract}
-                                        </div>
+                        <div class="cluster-papers">
+                            ${clusterPapers.map(paper => `
+                                <div class="paper-list-item">
+                                    <div class="paper-title" onclick="togglePaperAbstract(this.closest('.paper-list-item'))">
+                                        <span class="icon">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </span>
+                                        <a href="${paper.url}" target="_blank" onclick="event.stopPropagation()">${paper.title}</a>
                                     </div>
-                                `).join('')}
-                            </div>
+                                    <div class="paper-abstract">
+                                        ${paper.abstract}
+                                    </div>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
                 `;
             });
             html += '</div>';
-            
             resultsDiv.innerHTML = html;
             
-            // Add event listeners for cluster headers
-            document.querySelectorAll('.cluster-header').forEach(header => {
-                header.addEventListener('click', () => {
-                    const clusterId = header.dataset.clusterId;
-                    const content = document.getElementById(`cluster-${clusterId}`);
-                    const icon = header.querySelector('.fas');
-                    
-                    content.classList.toggle('is-hidden');
-                    icon.classList.toggle('fa-chevron-right');
-                    icon.classList.toggle('fa-chevron-down');
-                });
-            });
-            
-            // Add event listeners for paper titles
-            document.querySelectorAll('.paper-title').forEach(title => {
-                title.addEventListener('click', (e) => {
-                    // Prevent navigation if clicking the title (not the link)
-                    if (!e.target.matches('a')) {
-                        e.preventDefault();
-                        const abstract = title.nextElementSibling;
-                        const icon = title.querySelector('.fas');
-                        
-                        abstract.classList.toggle('is-hidden');
-                        icon.classList.toggle('fa-chevron-right');
-                        icon.classList.toggle('fa-chevron-down');
-                    }
+            // Add click handlers for recluster buttons
+            resultsDiv.querySelectorAll('.recluster-btn').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    const paperIds = JSON.parse(button.dataset.paperIds);
+                    const iteration = parseInt(button.dataset.iteration);
+                    await reclusterPapers(button, paperIds, iteration);
                 });
             });
         }
         
+        function toggleCluster(clusterHeader) {
+            clusterHeader.classList.toggle('is-expanded');
+            const papers = clusterHeader.nextElementSibling;
+            papers.classList.toggle('is-expanded');
+        }
+        
+        function togglePaperAbstract(paperListItem) {
+            paperListItem.classList.toggle('is-expanded');
+            const abstract = paperListItem.querySelector('.paper-abstract');
+            abstract.classList.toggle('is-expanded');
+        }
+        
+        async function reclusterPapers(button, paperIds, iteration) {
+            try {
+                // Add loading state to button
+                button.classList.add('is-loading');
+                
+                // Add skeleton clusters below
+                const clustersContainer = document.querySelector('.clusters');
+                const skeletons = `
+                    <div class="skeleton-clusters">
+                        <div class="skeleton-cluster"></div>
+                        <div class="skeleton-cluster"></div>
+                        <div class="skeleton-cluster"></div>
+                    </div>
+                `;
+                clustersContainer.insertAdjacentHTML('beforeend', skeletons);
+                
+                const response = await fetch('/recluster_uncategorized', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        paper_ids: paperIds,
+                        iteration: iteration
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to recluster papers');
+                }
+                
+                const data = await response.json();
+                
+                // Remove skeleton clusters
+                const skeletonContainer = document.querySelector('.skeleton-clusters');
+                if (skeletonContainer) {
+                    skeletonContainer.remove();
+                }
+                
+                if (data.clusters && data.clusters.length > 0) {
+                    // Remove the old uncategorized cluster
+                    const uncategorizedCluster = button.closest('.cluster');
+                    if (uncategorizedCluster) {
+                        uncategorizedCluster.remove();
+                    }
+                    
+                    // Add new clusters
+                    data.clusters.forEach(cluster => {
+                        const clusterHtml = `
+                            <div class="box cluster">
+                                <div class="cluster-header" onclick="toggleCluster(this)">
+                                    <h4 class="title is-4">
+                                        <span class="icon">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </span>
+                                        ${cluster.task}
+                                        <span class="tag is-info is-light">${cluster.papers.length} papers</span>
+                                        ${cluster.can_recluster && iteration < 3 ? `
+                                            <button class="button is-info recluster-btn ml-2" 
+                                                    onclick="event.stopPropagation()"
+                                                    data-iteration="${iteration + 1}" 
+                                                    data-paper-ids='${JSON.stringify(cluster.paper_ids)}'>
+                                                <span class="icon">
+                                                    <i class="fas fa-sync-alt"></i>
+                                                </span>
+                                                <span>Recluster (${iteration + 1}/3)</span>
+                                            </button>` : ''}
+                                    </h4>
+                                </div>
+                                <div class="cluster-papers">
+                                    ${cluster.papers.map(paper => `
+                                        <div class="paper-list-item">
+                                            <div class="paper-title" onclick="togglePaperAbstract(this.closest('.paper-list-item'))">
+                                                <span class="icon">
+                                                    <i class="fas fa-chevron-right"></i>
+                                                </span>
+                                                <a href="${paper.url}" target="_blank" onclick="event.stopPropagation()">${paper.title}</a>
+                                            </div>
+                                            <div class="paper-abstract">
+                                                ${paper.abstract}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                        clustersContainer.insertAdjacentHTML('beforeend', clusterHtml);
+                    });
+                    
+                    // Add click handlers for new recluster buttons
+                    clustersContainer.querySelectorAll('.recluster-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            e.preventDefault();
+                            const paperIds = JSON.parse(btn.dataset.paperIds);
+                            const iteration = parseInt(btn.dataset.iteration);
+                            await reclusterPapers(btn, paperIds, iteration);
+                        });
+                    });
+                    
+                    showStatusMessage('Reclustering complete!', 'success');
+                } else {
+                    showStatusMessage('No new clusters were created.', 'info');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatusMessage(error.message, 'danger');
+                
+                // Remove skeleton clusters on error
+                const skeletonContainer = document.querySelector('.skeleton-clusters');
+                if (skeletonContainer) {
+                    skeletonContainer.remove();
+                }
+                
+                // Remove loading state from button
+                button.classList.remove('is-loading');
+            }
+        }
+
         function showStatusMessage(message, type) {
             const html = `
                 <div class="notification is-${type}">
@@ -590,11 +824,31 @@
             // Tab switching
             document.querySelectorAll('.tabs li').forEach(tab => {
                 tab.addEventListener('click', () => {
-                    const targetView = tab.dataset.tab;
-                    switchView(targetView);
+                    const tabName = tab.dataset.tab;
+                    switchView(tabName);
                 });
             });
-            
+
+            // Event listener for search button click
+            document.getElementById('search-button').addEventListener('click', function(e) {
+                e.preventDefault();
+                const searchTerm = document.getElementById('search-input').value.trim();
+                if (searchTerm) {
+                    performSearch(searchTerm, 1);
+                }
+            });
+
+            // Event listener for search input enter key
+            document.getElementById('search-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const searchTerm = e.target.value.trim();
+                    if (searchTerm) {
+                        performSearch(searchTerm, 1);
+                    }
+                }
+            });
+
             // Form submission for loading papers
             document.getElementById('eventForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
@@ -605,15 +859,6 @@
                 }
                 
                 await loadPapers(url);
-            });
-
-            // Form submission for search
-            document.getElementById('searchForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const searchTerm = document.getElementById('searchInput').value.trim();
-                if (searchTerm) {
-                    performSearch(searchTerm, 1);
-                }
             });
 
             // Previous page button

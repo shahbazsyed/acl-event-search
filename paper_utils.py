@@ -125,7 +125,7 @@ def parse_html(html_content: str, base_url: str) -> List[Dict]:
             if title.startswith('Proceedings of '):
                 continue
             paper['title'] = title
-            paper['link'] = base_url + "/" + title_link['href'][1:]
+            paper['url'] = base_url + "/" + title_link['href'][1:]  # Changed 'link' to 'url'
             paper['id'] = title_link['href'].split('/')[-2]  # Get ID from URL
 
         # Authors
@@ -210,7 +210,7 @@ async def get_paper_info(url: str) -> List[Dict]:
         logger.error(f"Error processing papers: {e}")
         raise
 
-async def search_papers(event_index: EventIndex, query: str, top_k: int = 10) -> List[Dict]:
+async def search_papers(event_index: EventIndex, query: str, top_k: int = 50) -> List[Dict]:
     """Search papers using cosine similarity with query embedding."""
     try:
         # Get query embedding

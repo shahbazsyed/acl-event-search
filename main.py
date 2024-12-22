@@ -1,5 +1,5 @@
 import logging
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import FileResponse
@@ -8,8 +8,8 @@ from typing import List, Dict, Any, Optional
 import json
 import os
 import asyncio
-from paper_utils import get_paper_info, search_papers, EventIndex, load_papers_from_url, generate_embedding
-from gemini_utils import cluster_papers, summarize_cluster
+from paper_utils import search_papers, EventIndex, load_papers_from_url
+from gemini_utils import cluster_papers, summarize_cluster, recluster_uncategorized_papers
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -47,6 +47,10 @@ class SummaryRequest(BaseModel):
 class EventRequest(BaseModel):
     event_url: str
 
+class ReclusterRequest(BaseModel):
+    paper_ids: List[str]
+    iteration: int = 1
+
 @app.post("/load_papers")
 async def load_papers(request: EventRequest):
     """Load papers from an event URL."""
@@ -74,14 +78,14 @@ async def search(request: SearchRequest):
         if not current_index:
             raise HTTPException(status_code=400, detail="No papers loaded. Please load papers first.")
         
+        # Search with a higher limit to allow for pagination
+        results = await search_papers(current_index, request.query, top_k=50)
+        
         # Calculate pagination
         start_idx = (request.page - 1) * request.per_page
         end_idx = start_idx + request.per_page
         
-        # Search all results first
-        results = await search_papers(current_index, request.query)
-        
-        # Then paginate the results
+        # Paginate the results
         paginated_results = results[start_idx:end_idx]
         
         return {
@@ -166,6 +170,30 @@ async def get_cluster_summary(request: SummaryRequest) -> Dict[str, str]:
     except TimeoutError:
         raise HTTPException(status_code=504, detail="Summarization operation timed out")
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/recluster_uncategorized")
+async def recluster_uncategorized(request: ReclusterRequest):
+    """Recluster uncategorized papers."""
+    try:
+        if not current_index:
+            raise HTTPException(status_code=400, detail="No papers loaded. Please load papers first.")
+            
+        # Get papers by IDs
+        papers_to_cluster = []
+        for paper in current_index.papers:
+            if paper.get('id') in request.paper_ids:
+                papers_to_cluster.append(paper)
+                
+        if not papers_to_cluster:
+            raise HTTPException(status_code=400, detail="No papers found with provided IDs")
+            
+        # Recluster the papers
+        clusters = await recluster_uncategorized_papers(papers_to_cluster, request.iteration)
+        return {"clusters": clusters}
+        
+    except Exception as e:
+        logger.error(f"Error reclustering papers: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
