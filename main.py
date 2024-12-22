@@ -1,11 +1,17 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+import logging
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import FileResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Dict, Any, Optional
+import json
 import os
-from paper_utils import get_paper_info, search_papers, EventIndex
+import asyncio
+from paper_utils import get_paper_info, search_papers, EventIndex, load_papers_from_url, generate_embedding
+from gemini_utils import cluster_papers, summarize_cluster
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="ACL Event Paper Search API")
 
@@ -21,74 +27,149 @@ app.add_middleware(
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-class SearchQuery(BaseModel):
+# Initialize event index
+current_index = None
+
+class SearchRequest(BaseModel):
     query: str
-    event_url: str  # Added to specify which event to search in
-    top_k: Optional[int] = 10
+    page: Optional[int] = 1
+    per_page: Optional[int] = 10
 
-class Paper(BaseModel):
-    title: str
-    authors: List[str]
-    abstract: Optional[str]
-    link: str
+class ClusterResponse(BaseModel):
+    clusters: List[Dict[str, Any]]
 
-# Dictionary to store active event indexes
-event_indexes: Dict[str, EventIndex] = {}
+class SummaryRequest(BaseModel):
+    task_name: str
+    paper_ids: List[str]
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize cache directory on startup"""
-    os.makedirs("cache", exist_ok=True)
+class EventRequest(BaseModel):
+    event_url: str
 
-@app.get("/")
-async def root():
-    """Serve the main HTML page"""
-    return FileResponse("static/index.html")
-
-@app.get("/refresh/{event_url:path}")
-async def refresh_papers(event_url: str):
-    """Fetch papers from a given ACL event URL and update embeddings"""
-    # Ensure the URL is from aclanthology.org
-    if not event_url.startswith("https://aclanthology.org/"):
-        raise HTTPException(status_code=400, detail="Invalid URL. Must be from aclanthology.org")
-    
-    # Fetch or load event index
-    event_index = get_paper_info(event_url)
-    if not event_index:
-        raise HTTPException(status_code=500, detail="Failed to fetch papers")
-    
-    # Store the event index
-    event_indexes[event_url] = event_index
-    
-    return {
-        "message": f"Successfully fetched {len(event_index.papers)} papers",
-        "paper_count": len(event_index.papers)
-    }
+@app.post("/load_papers")
+async def load_papers(request: EventRequest):
+    """Load papers from an event URL."""
+    try:
+        papers = await load_papers_from_url(request.event_url)
+        
+        # Create event index which handles caching and embeddings
+        global current_index
+        current_index = EventIndex(papers, request.event_url)
+        
+        # Add embeddings to paper objects for the frontend
+        for i, paper in enumerate(papers):
+            paper['embedding'] = current_index.embeddings[i].tolist()
+        
+        return papers
+        
+    except Exception as e:
+        logger.error(f"Error loading papers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/search")
-async def search(query: SearchQuery):
-    """Search for papers using semantic search within a specific event"""
-    event_index = event_indexes.get(query.event_url)
-    if not event_index:
-        raise HTTPException(
-            status_code=400,
-            detail="Event not loaded. Please fetch papers first using /refresh endpoint"
-        )
-    
-    results = search_papers(query.query, event_index, top_k=query.top_k)
-    return results
+async def search(request: SearchRequest):
+    """Search papers using semantic search."""
+    try:
+        if not current_index:
+            raise HTTPException(status_code=400, detail="No papers loaded. Please load papers first.")
+        
+        # Calculate pagination
+        start_idx = (request.page - 1) * request.per_page
+        end_idx = start_idx + request.per_page
+        
+        # Search all results first
+        results = await search_papers(current_index, request.query)
+        
+        # Then paginate the results
+        paginated_results = results[start_idx:end_idx]
+        
+        return {
+            "results": paginated_results,
+            "total": len(results),
+            "page": request.page,
+            "per_page": request.per_page,
+            "total_pages": (len(results) + request.per_page - 1) // request.per_page
+        }
+        
+    except Exception as e:
+        logger.error(f"Error searching papers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/papers/{event_url:path}")
-async def get_papers(event_url: str, skip: int = 0, limit: int = 10):
-    """Get a list of papers with pagination for a specific event"""
-    event_index = event_indexes.get(event_url)
-    if not event_index:
-        raise HTTPException(
-            status_code=400,
-            detail="Event not loaded. Please fetch papers first using /refresh endpoint"
-        )
+@app.post("/cluster")
+async def cluster_papers_endpoint(background_tasks: BackgroundTasks):
+    """Start clustering papers."""
+    try:
+        if not current_index:
+            raise HTTPException(status_code=400, detail="No papers loaded. Please load papers first.")
+            
+        # Get papers with embeddings from current index
+        papers_with_embeddings = current_index.papers.copy()
+        for i, paper in enumerate(papers_with_embeddings):
+            paper['embedding'] = current_index.embeddings[i].tolist()
+            
+        # Start clustering in background
+        background_tasks.add_task(cluster_papers_background, papers_with_embeddings)
+        
+        return {"status": "started"}
+        
+    except Exception as e:
+        logger.error(f"Error starting clustering: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/cluster_status")
+async def get_cluster_status():
+    """Get the current status of clustering and results if available."""
+    try:
+        if not hasattr(app.state, 'clusters'):
+            return {"status": "clustering", "clusters": None}
+        return {"status": "complete", "clusters": app.state.clusters}
+    except Exception as e:
+        logger.error(f"Error getting cluster status: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def cluster_papers_background(papers_with_embeddings):
+    """Background task for clustering papers."""
+    try:
+        logger.info("Starting background clustering task")
+        if not papers_with_embeddings:
+            logger.error("No papers loaded for clustering")
+            app.state.clusters = {"clusters": []}
+            return
+            
+        logger.info(f"Processing {len(papers_with_embeddings)} papers for clustering")
+        
+        logger.info(f"Starting clustering with {len(papers_with_embeddings)} papers")
+        clusters = await cluster_papers(papers_with_embeddings)
+        logger.info("Clustering completed, storing results")
+        app.state.clusters = clusters.dict()
+        logger.info("Clustering results stored in app state")
+        
+    except Exception as e:
+        logger.error(f"Error in background clustering: {str(e)}", exc_info=True)
+        app.state.clusters = {"clusters": []}
+
+@app.post("/summarize")
+async def get_cluster_summary(request: SummaryRequest) -> Dict[str, str]:
+    """Get a summary for a specific cluster of papers."""
+    if not current_index or not current_index.papers:
+        raise HTTPException(status_code=400, detail="No papers loaded")
     
-    return event_index.papers[skip:skip + limit]
+    try:
+        # Get papers for the requested IDs
+        cluster_papers = [p for p in current_index.papers if p['id'] in request.paper_ids]
+        if not cluster_papers:
+            raise HTTPException(status_code=404, detail="No papers found for the given IDs")
+            
+        summary = await summarize_cluster(request.task_name, cluster_papers, timeout=30)
+        return {"summary": summary}
+    except TimeoutError:
+        raise HTTPException(status_code=504, detail="Summarization operation timed out")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/")
+async def read_root():
+    """Serve the main HTML page."""
+    return FileResponse("static/index.html")
 
 if __name__ == "__main__":
     import uvicorn

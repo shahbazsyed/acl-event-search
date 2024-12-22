@@ -1,69 +1,635 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACL Event Paper Search</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="/static/style.css">
-    <meta name="color-scheme" content="light dark">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .is-hidden {
+            display: none;
+        }
+        .paper-list {
+            margin-top: 2rem;
+        }
+        .paper-card {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .paper-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .paper-abstract {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        #search-container {
+            margin: 2rem 0;
+        }
+        .paper-count {
+            margin: 1rem 0;
+            color: #666;
+        }
+        .button .icon {
+            margin-right: 0.5em;
+        }
+        .button.is-loading {
+            pointer-events: none;
+        }
+        .button.is-loading .icon {
+            display: none;
+        }
+        .box {
+            margin-bottom: 1.5rem;
+        }
+        #search-container {
+            margin-bottom: 2rem;
+        }
+        #search-container .box {
+            background-color: #f5f5f5;
+        }
+        #search-container .label {
+            color: #363636;
+            font-weight: 600;
+        }
+        #search-container .help {
+            color: #666;
+            margin-top: 0.5rem;
+        }
+        #papers-list {
+            margin-top: 2rem;
+        }
+        .loading-indicator {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        .spinner {
+            display: inline-block;
+            width: 2rem;
+            height: 2rem;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3273dc;
+            border-radius: 50%;
+            margin-left: 1rem;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Tabs */
+        .tabs li {
+            cursor: pointer;
+        }
+        
+        .tabs li.is-active a {
+            border-bottom-color: #485fc7;
+            color: #485fc7;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.is-active {
+            display: block;
+        }
+        
+        .cluster-header {
+            cursor: pointer;
+        }
+        .cluster-header:hover {
+            background-color: #f5f5f5;
+        }
+        .paper-title {
+            cursor: pointer;
+            padding: 0.5rem 0;
+            margin-bottom: 0.5rem;
+        }
+        .paper-title:hover {
+            background-color: #f5f5f5;
+        }
+        .paper-abstract {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .paper-item {
+            border-bottom: 1px solid #eee;
+            padding: 0.5rem 0;
+        }
+        .paper-item:last-child {
+            border-bottom: none;
+        }
+        .cluster .title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .tag {
+            margin-left: auto;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar" role="navigation" aria-label="main navigation">
-        <div class="navbar-brand">
-            <div class="navbar-item">
-                <h1 class="title is-4">ACL Event Paper Search</h1>
-            </div>
-        </div>
-    </nav>
-
     <section class="section">
-        <div class="container is-widescreen">
-            <div class="box">
-                <h2 class="title is-4 mb-4">Step 1: Load Papers from ACL Event</h2>
-                <form id="eventForm">
-                    <div class="field has-addons">
-                        <div class="control is-expanded">
-                            <input class="input" type="url" id="eventUrl" placeholder="Enter ACL Anthology event URL" required>
-                        </div>
-                        <div class="control">
-                            <button type="submit" class="button is-primary" id="loadButton">
-                                <span>Load Papers</span>
-                            </button>
-                        </div>
+        <div class="container">
+            <h1 class="title mt-4">ACL Event Paper Search</h1>
+            
+            <!-- Load Papers Form -->
+            <form id="eventForm" class="mb-4">
+                <div class="field has-addons">
+                    <div class="control is-expanded">
+                        <input class="input" type="text" id="eventUrl" placeholder="Enter ACL Anthology event URL">
                     </div>
-                    <div id="step1Result" class="help"></div>
-                </form>
-
-                <div class="buttons mt-4">
-                    <button id="viewAllBtn" class="button is-info is-light" style="display: none;">View All Papers</button>
-                    <button id="hideAllBtn" class="button is-info is-light" style="display: none;">Hide All Papers</button>
+                    <div class="control">
+                        <button type="submit" class="button is-primary" id="loadButton">
+                            <span class="icon">
+                                <i class="fas fa-download"></i>
+                            </span>
+                            <span>Load Papers</span>
+                        </button>
+                    </div>
                 </div>
+            </form>
 
-                <div id="searchSection" class="mt-5" style="display: none;">
-                    <h2 class="title is-4 mb-4">Step 2: Search Through Papers</h2>
+            <!-- Tabs -->
+            <div class="tabs">
+                <ul>
+                    <li class="is-active" data-tab="papers"><a>Papers</a></li>
+                    <li data-tab="clusters"><a>Clusters</a></li>
+                </ul>
+            </div>
+            
+            <!-- Search Box - Moved here after tabs -->
+            <div id="search-container" class="is-hidden">
+                <div class="box">
                     <form id="searchForm">
-                        <div class="field has-addons">
-                            <div class="control is-expanded">
-                                <input class="input" type="text" id="searchQuery" placeholder="Enter your search query" required>
+                        <div class="field">
+                            <label class="label">Search Papers</label>
+                            <div class="field has-addons">
+                                <div class="control is-expanded">
+                                    <input class="input" type="text" id="searchInput" 
+                                        placeholder="Enter your search query (e.g., 'language models for code generation')">
+                                </div>
+                                <div class="control">
+                                    <button type="submit" class="button is-info" id="searchButton">
+                                        <span class="icon">
+                                            <i class="fas fa-search"></i>
+                                        </span>
+                                        <span>Search</span>
+                                    </button>
+                                </div>
                             </div>
-                            <div class="control">
-                                <button type="submit" class="button is-primary" id="searchButton">
-                                    <span>Search</span>
-                                </button>
-                            </div>
+                            <p class="help">Use natural language to search for semantically similar papers</p>
                         </div>
-                        <div id="step2Result" class="help"></div>
                     </form>
-
-                    <div id="searchResults" class="mt-4"></div>
-                    <div id="pagination" class="mt-5"></div>
                 </div>
             </div>
+
+            <!-- Papers View -->
+            <div id="papers-view" class="tab-content is-active">
+                <div id="papers-list" class="mt-4"></div>
+                <p id="results-count" class="is-hidden"></p>
+                <!-- Pagination -->
+                <nav class="pagination is-centered mt-4 is-hidden" role="navigation" aria-label="pagination" id="pagination-controls">
+                    <a class="pagination-previous" id="prev-page">Previous</a>
+                    <a class="pagination-next" id="next-page">Next</a>
+                    <ul class="pagination-list" id="page-numbers"></ul>
+                </nav>
+            </div>
+            
+            <!-- Clusters View -->
+            <div id="clusters-view" class="tab-content">
+                <div id="clusters-loading" class="is-hidden">
+                    <h4 id="loading-message">Loading...</h4>
+                </div>
+                <div id="clusters-results"></div>
+            </div>
+
+            <!-- Status Messages -->
+            <div id="status-messages"></div>
         </div>
     </section>
 
-    <script src="/static/app.js"></script>
+    <script>
+        let papers = [];  // Store loaded papers globally
+        let filteredPapers = [];  // Store search results
+        let currentPage = 1;
+        let totalPages = 1;
+        let currentQuery = '';
+        
+        async function performSearch(searchTerm, page = 1) {
+            const searchInput = document.getElementById('searchInput');
+            const searchButton = document.getElementById('searchButton');
+            
+            try {
+                // Show loading state
+                searchButton.classList.add('is-loading');
+                searchButton.disabled = true;
+                
+                const response = await fetch('/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        query: searchTerm || searchInput.value.trim(),
+                        page: page,
+                        per_page: 10
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Search failed');
+                }
+                
+                const data = await response.json();
+                
+                // Update results
+                const resultsDiv = document.getElementById('papers-list');
+                resultsDiv.innerHTML = data.results.map(paper => `
+                    <div class="box">
+                        <article class="media">
+                            <div class="media-content">
+                                <div class="content">
+                                    <p>
+                                        <strong><a href="${paper.url}" target="_blank">${paper.title}</a></strong>
+                                        <br>
+                                        <small>${paper.authors.join(', ')}</small>
+                                        <br>
+                                        ${paper.abstract}
+                                        ${paper.score ? `<br><small class="has-text-info">Relevance Score: ${paper.score.toFixed(3)}</small>` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                `).join('');
+                
+                // Show number of results
+                const resultsCount = document.getElementById('results-count');
+                resultsCount.textContent = `Found ${data.total} papers`;
+                resultsCount.classList.remove('is-hidden');
+                
+                // Update pagination
+                updatePagination(data.page, data.total_pages);
+                
+            } catch (error) {
+                console.error('Search error:', error);
+                showStatusMessage(error.message, 'danger');
+            } finally {
+                searchButton.classList.remove('is-loading');
+                searchButton.disabled = false;
+            }
+        }
+
+        function updatePagination(page, totalPages) {
+            const paginationControls = document.getElementById('pagination-controls');
+            
+            if (!papers.length) {
+                paginationControls.classList.add('is-hidden');
+                return;
+            }
+            
+            const prevBtn = document.querySelector('.pagination-previous');
+            const nextBtn = document.querySelector('.pagination-next');
+            const pageList = document.querySelector('.pagination-list');
+            
+            // Update buttons state
+            prevBtn.disabled = page <= 1;
+            nextBtn.disabled = page >= totalPages;
+            
+            // Clear existing page numbers
+            pageList.innerHTML = '';
+            
+            // Add page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.className = `pagination-link ${i === page ? 'is-current' : ''}`;
+                a.setAttribute('aria-label', `Page ${i}`);
+                a.textContent = i;
+                a.onclick = () => performSearch(currentQuery, i);
+                li.appendChild(a);
+                pageList.appendChild(li);
+            }
+            
+            // Show pagination only if we have more than one page
+            paginationControls.classList.toggle('is-hidden', totalPages <= 1);
+        }
+
+        async function loadPapers(url) {
+            // Get UI elements
+            const button = document.getElementById('loadButton');
+            const input = document.getElementById('eventUrl');
+            const paperView = document.querySelector('[data-tab="papers"]');
+            const searchBox = document.getElementById('search-container'); // Get the search box
+            
+            // Set loading state immediately
+            button.classList.add('is-loading');
+            button.disabled = true;
+            input.disabled = true;
+            paperView.classList.add('is-loading');
+            
+            try {
+                showStatusMessage('Loading papers...', 'info');
+                
+                const response = await fetch('/load_papers', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ event_url: url })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to load papers');
+                }
+                
+                const data = await response.json();
+                
+                // Show papers immediately on load
+                showPapers(data);
+                showStatusMessage(`Loaded ${data.length} papers successfully!`, 'success');
+                
+                // Start clustering in background
+                getClusters();
+                
+                 // Show the search box after papers have been loaded
+                searchBox.classList.remove('is-hidden'); // Added: Show search box
+                
+                // Show papers tab explicitly
+                switchView('papers');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatusMessage('Failed to load papers: ' + error.message, 'danger');
+            } finally {
+                // Reset loading states
+                button.classList.remove('is-loading');
+                button.disabled = false;
+                input.disabled = false;
+                paperView.classList.remove('is-loading');
+            }
+        }
+        
+        function showPapers(papersList) {
+            const resultsDiv = document.getElementById('papers-list');
+            if (!papersList || papersList.length === 0) {
+                resultsDiv.innerHTML = '<div class="notification">No papers found.</div>';
+                return;
+            }
+            
+            const html = papersList.map(paper => `
+                <div class="box">
+                    <article class="media">
+                        <div class="media-content">
+                            <div class="content">
+                                <p>
+                                    <strong><a href="${paper.link}" target="_blank">${paper.title}</a></strong>
+                                    <br>
+                                    <small>${paper.authors.join(', ')}</small>
+                                    <br>
+                                    ${paper.abstract}
+                                </p>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            `).join('');
+            
+            resultsDiv.innerHTML = html;
+            
+            // Store loaded papers globally
+            papers = papersList;
+        }
+        
+        function switchView(view) {
+            // Update tab active state
+            document.querySelectorAll('.tabs li').forEach(tab => {
+                tab.classList.toggle('is-active', tab.dataset.tab === view);
+            });
+            
+            // Update content visibility
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.toggle('is-active', content.id === `${view}-view`);
+            });
+        }
+
+        async function getClusters() {
+            const resultsDiv = document.getElementById('clusters-view');
+            
+            try {
+                resultsDiv.innerHTML = '<div class="loading-indicator">Running HDBSCAN clustering...<div class="spinner"></div></div>';
+                
+                // Start clustering
+                const response = await fetch('/cluster', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to start clustering');
+                }
+                
+                // Check cluster status
+                const statusResponse = await fetch('/cluster_status');
+                const statusData = await statusResponse.json();
+                
+                if (statusData.status === "complete") {
+                    if (statusData.clusters && statusData.clusters.clusters) {
+                        displayClusters(statusData.clusters.clusters);
+                        showStatusMessage('Clusters ready!', 'success');
+                    } else {
+                        throw new Error('Invalid cluster data format');
+                    }
+                } else {
+                    showStatusMessage("Clustering is running in the background, please wait...", "info");
+                    resultsDiv.innerHTML = '<div class="loading-indicator">Clustering in progress...<div class="spinner"></div></div>';
+                    // Poll for status every 5 seconds
+                    setTimeout(getClusters, 5000);
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatusMessage(error.message, 'danger');
+                resultsDiv.innerHTML = '<div class="notification is-danger">Error running clustering. Please try again.</div>';
+            }
+        }
+        
+        function displayClusters(clusters) {
+            const resultsDiv = document.getElementById('clusters-view');
+            if (!clusters || clusters.length === 0) {
+                resultsDiv.innerHTML = '<div class="notification">No clusters available.</div>';
+                return;
+            }
+            
+            // Sort clusters alphabetically, but keep "Uncategorized" at the end
+            const sortedClusters = [...clusters].sort((a, b) => {
+                if (a.task === "Uncategorized") return 1;
+                if (b.task === "Uncategorized") return -1;
+                return a.task.localeCompare(b.task);
+            });
+            
+            let html = '<div class="clusters">';
+            sortedClusters.forEach((cluster, index) => {
+                const clusterPapers = cluster.papers || [];
+                if (clusterPapers.length === 0) return;
+                
+                html += `
+                    <div class="box cluster">
+                        <div class="cluster-header" data-cluster-id="${index}">
+                            <h4 class="title is-4">
+                                <span class="icon">
+                                    <i class="fas fa-chevron-right"></i>
+                                </span>
+                                ${cluster.task}
+                                <span class="tag is-info is-light">${clusterPapers.length} papers</span>
+                            </h4>
+                        </div>
+                        <div class="cluster-content is-hidden" id="cluster-${index}">
+                            <div class="papers">
+                                ${clusterPapers.map((paper, paperIndex) => `
+                                    <div class="paper-item">
+                                        <p class="paper-title" data-paper-id="${index}-${paperIndex}">
+                                            <span class="icon">
+                                                <i class="fas fa-chevron-right"></i>
+                                            </span>
+                                            <a href="${paper.link}" target="_blank">${paper.title}</a>
+                                            <small class="has-text-grey">${paper.authors.join(', ')}</small>
+                                        </p>
+                                        <div class="paper-abstract is-hidden">
+                                            ${paper.abstract}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            resultsDiv.innerHTML = html;
+            
+            // Add event listeners for cluster headers
+            document.querySelectorAll('.cluster-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const clusterId = header.dataset.clusterId;
+                    const content = document.getElementById(`cluster-${clusterId}`);
+                    const icon = header.querySelector('.fas');
+                    
+                    content.classList.toggle('is-hidden');
+                    icon.classList.toggle('fa-chevron-right');
+                    icon.classList.toggle('fa-chevron-down');
+                });
+            });
+            
+            // Add event listeners for paper titles
+            document.querySelectorAll('.paper-title').forEach(title => {
+                title.addEventListener('click', (e) => {
+                    // Prevent navigation if clicking the title (not the link)
+                    if (!e.target.matches('a')) {
+                        e.preventDefault();
+                        const abstract = title.nextElementSibling;
+                        const icon = title.querySelector('.fas');
+                        
+                        abstract.classList.toggle('is-hidden');
+                        icon.classList.toggle('fa-chevron-right');
+                        icon.classList.toggle('fa-chevron-down');
+                    }
+                });
+            });
+        }
+        
+        function showStatusMessage(message, type) {
+            const html = `
+                <div class="notification is-${type}">
+                    <button class="delete"></button>
+                    ${message}
+                </div>
+            `;
+            
+            // Add new message
+            const messagesDiv = document.getElementById('status-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.innerHTML = html;
+            messagesDiv.appendChild(messageDiv.firstChild);
+            
+            // Add close button handler
+            const deleteButton = messagesDiv.querySelector('.notification:last-child .delete');
+            if (deleteButton) {
+                deleteButton.addEventListener('click', function() {
+                    this.parentElement.remove();
+                });
+            }
+            
+            // Auto-remove success/info messages after 5 seconds
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    const notification = messagesDiv.querySelector('.notification:last-child');
+                    if (notification) {
+                        notification.remove();
+                    }
+                }, 5000);
+            }
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab switching
+            document.querySelectorAll('.tabs li').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetView = tab.dataset.tab;
+                    switchView(targetView);
+                });
+            });
+            
+            // Form submission for loading papers
+            document.getElementById('eventForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const url = document.getElementById('eventUrl').value.trim();
+                if (!url) {
+                    showStatusMessage('Please enter a valid URL', 'warning');
+                    return;
+                }
+                
+                await loadPapers(url);
+            });
+
+            // Form submission for search
+            document.getElementById('searchForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const searchTerm = document.getElementById('searchInput').value.trim();
+                if (searchTerm) {
+                    performSearch(searchTerm, 1);
+                }
+            });
+
+            // Previous page button
+            document.getElementById('prev-page').addEventListener('click', function() {
+                if (currentPage > 1) {
+                    performSearch(currentQuery, currentPage - 1);
+                }
+            });
+            
+            // Next page button
+            document.getElementById('next-page').addEventListener('click', function() {
+                if (currentPage < totalPages) {
+                    performSearch(currentQuery, currentPage + 1);
+                }
+            });
+        });
+    </script>
 </body>
 </html>
