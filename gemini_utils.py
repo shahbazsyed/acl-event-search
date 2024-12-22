@@ -160,8 +160,7 @@ async def extract_json_from_response(response_text: str) -> Dict:
     try:
         cleaned_text = response_text.strip()
 
-        # Remove any markdown code blocks ```json...```
-        cleaned_text = re.sub(r'```json.*?```', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
+        # Remove any markdown code blocks ``````', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
         cleaned_text = cleaned_text.strip("`")  # Remove lone backticks
 
         # Remove non-json characters before or after braces
@@ -296,11 +295,11 @@ async def recluster_large_group(papers: List[Dict[str, Any]], max_papers_per_bat
     try:
         logger.info(f"  - Preparing {len(papers)} papers for Gemini reclustering...")
         
-        # Prepare paper data with titles only
+        # Prepare paper data with titles and abstracts
         papers_data = [{
             'id': paper.get('id', ''),
             'title': paper.get('title', ''),
-            'abstract': paper.get('abstract', '')[:100]  #Further truncate abstract for performance 
+            'abstract': paper.get('abstract', '')[:100]  # Further truncate abstract for performance
         } for paper in papers]
         
         # Process in smaller batches to avoid timeouts
@@ -457,60 +456,68 @@ async def cluster_papers(papers: List[Dict[str, Any]]) -> ClusterResponse:
         if uncategorized_papers:
             logger.info(f"\n5. Reclustering {len(uncategorized_papers)} uncategorized papers with Gemini...")
             
-            # Apply HDBSCAN to uncategorized papers
-            logger.info(f"  - Applying HDBSCAN to uncategorized papers...")
-            uncategorized_embeddings = np.array([paper.get('embedding', []) for paper in uncategorized_papers], dtype=np.float32)
-            if len(uncategorized_embeddings) == 0 or len(uncategorized_embeddings[0]) == 0:
-                logger.warning(f"  - Uncategorized papers do not have valid embeddings, re-clustering with gemini without HDBSCAN")
-                uncategorized_clusters = await recluster_large_group(uncategorized_papers)
-            else:
-                uncategorized_embeddings = normalize(uncategorized_embeddings)
-                uncategorized_clusterer = hdbscan.HDBSCAN(
-                    min_cluster_size=5,
-                    min_samples=3,
-                    metric='euclidean',
-                    cluster_selection_method='eom'
-                )
-                uncategorized_labels = uncategorized_clusterer.fit_predict(uncategorized_embeddings)
-                unique_uncat_labels = set(uncategorized_labels)
-                n_uncat_noise = sum(1 for label in uncategorized_labels if label == -1)
-                n_uncat_clusters = len(unique_uncat_labels) - (1 if -1 in unique_uncat_labels else 0)
-                
-                logger.info(f"    - HDBSCAN found {n_uncat_clusters} subclusters and {n_uncat_noise} unclustered papers")
-                
-                uncat_clusters_dict = {}
-                
-                for idx, label in enumerate(uncategorized_labels):
-                   if label != -1:  # Noise points
-                       if label not in uncat_clusters_dict:
-                            uncat_clusters_dict[label] = []
-                       uncat_clusters_dict[label].append(uncategorized_papers[idx])
-                
-                
-                uncat_tasks = []
-                logger.info(f"    - Sending {len(uncat_clusters_dict)} subclusters to Gemini for naming...")
-                for label, cluster_papers in uncat_clusters_dict.items():
-                    uncat_tasks.append(get_cluster_task(cluster_papers))
+            # Apply HDBSCAN to uncategorized papers until under a limit
+            
+            remaining_papers = uncategorized_papers
+            iteration = 0
+            while len(remaining_papers) > 150 and iteration < 3:
+                iteration += 1
+                logger.info(f"  - Applying HDBSCAN to uncategorized papers (iteration: {iteration})...")
+                uncategorized_embeddings = np.array([paper.get('embedding', []) for paper in remaining_papers], dtype=np.float32)
+                if len(uncategorized_embeddings) == 0 or len(uncategorized_embeddings[0]) == 0:
+                     logger.warning(f"  - Uncategorized papers do not have valid embeddings, skipping HDBSCAN for this iteration")
+                     uncategorized_clusters = await recluster_large_group(remaining_papers)
+                     final_clusters.extend(uncategorized_clusters)
+                     remaining_papers = []
+                     break
+                else:
+                    uncategorized_embeddings = normalize(uncategorized_embeddings)
+                    uncategorized_clusterer = hdbscan.HDBSCAN(
+                        min_cluster_size=10,
+                        min_samples=3,
+                        metric='euclidean',
+                        cluster_selection_method='eom'
+                    )
+                    uncategorized_labels = uncategorized_clusterer.fit_predict(uncategorized_embeddings)
+                    unique_uncat_labels = set(uncategorized_labels)
+                    n_uncat_noise = sum(1 for label in uncategorized_labels if label == -1)
+                    n_uncat_clusters = len(unique_uncat_labels) - (1 if -1 in unique_uncat_labels else 0)
                     
-                # Wait for all cluster naming tasks to complete
-                uncat_cluster_names = await asyncio.gather(*uncat_tasks)
-                
-                for (label, cluster_papers), task_name in zip(uncat_clusters_dict.items(), uncat_cluster_names):
-                    paper_ids = [p.get('id', '') for p in cluster_papers]
-                    final_clusters.append(Cluster(
-                        task=task_name,
-                        paper_ids=paper_ids,
-                        papers=cluster_papers
-                    ))
-                   
-                # Put noise points in to a single cluster
-                noise_points = [uncategorized_papers[idx] for idx, label in enumerate(uncategorized_labels) if label == -1]
-                if noise_points:
-                    final_clusters.append(Cluster(
-                      task="Uncategorized",
-                      paper_ids=[p.get('id','') for p in noise_points],
-                      papers = noise_points
-                      ))
+                    logger.info(f"    - HDBSCAN found {n_uncat_clusters} subclusters and {n_uncat_noise} unclustered papers")
+                    
+                    uncat_clusters_dict = {}
+                    
+                    for idx, label in enumerate(uncategorized_labels):
+                       if label != -1:  # Noise points
+                           if label not in uncat_clusters_dict:
+                                uncat_clusters_dict[label] = []
+                           uncat_clusters_dict[label].append(remaining_papers[idx])
+                    
+                    uncat_tasks = []
+                    logger.info(f"    - Sending {len(uncat_clusters_dict)} subclusters to Gemini for naming...")
+                    for label, cluster_papers in uncat_clusters_dict.items():
+                        uncat_tasks.append(get_cluster_task(cluster_papers))
+                    
+                    # Wait for all cluster naming tasks to complete
+                    uncat_cluster_names = await asyncio.gather(*uncat_tasks)
+                    
+                    for (label, cluster_papers), task_name in zip(uncat_clusters_dict.items(), uncat_cluster_names):
+                        paper_ids = [p.get('id', '') for p in cluster_papers]
+                        final_clusters.append(Cluster(
+                            task=task_name,
+                            paper_ids=paper_ids,
+                            papers=cluster_papers
+                        ))
+                    
+                    # Get noise points for next iteration
+                    remaining_papers = [remaining_papers[idx] for idx, label in enumerate(uncategorized_labels) if label == -1]
+            
+            # Send any remaining papers to Gemini if still more than 150
+            if remaining_papers:
+               logger.info(f"  - Gemini reclustering {len(remaining_papers)} remaining uncategorized papers")
+               uncategorized_clusters = await recluster_large_group(remaining_papers)
+               final_clusters.extend(uncategorized_clusters)
+
         
         # Sort clusters by size (descending) but keep Uncategorized at end
         logger.info("\n6. Finalizing clusters...")
@@ -551,6 +558,7 @@ async def cluster_papers(papers: List[Dict[str, Any]]) -> ClusterResponse:
                 papers=papers
             )
         ])
+
 
 async def summarize_cluster(task_name: str, papers: List[Dict[str, Any]], timeout: int = 30, retry_count=3, initial_delay=1) -> PaperSummary:
     """

@@ -11,6 +11,8 @@ import asyncio
 from paper_utils import get_paper_info, search_papers, EventIndex, load_papers_from_url, generate_embedding
 from gemini_utils import cluster_papers, summarize_cluster
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="ACL Event Paper Search API")
