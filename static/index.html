@@ -4,7 +4,9 @@
     <title>ACL Event Paper Search</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
     <style>
+        
         .is-hidden {
             display: none;
         }
@@ -247,12 +249,58 @@
         .button.is-info:hover {
             background-color: #00c4a7;
         }
+        
+        /* Skeleton clusters */
+        .skeleton-clusters {
+            margin-top: 2rem;
+        }
+        .skeleton-cluster {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+        .skeleton-cluster-header {
+            height: 2rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            border-radius: 4px;
+            animation: pulse 1.5s infinite;
+        }
+        .skeleton-paper {
+            height: 2rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            border-radius: 4px;
+            animation: pulse 1.5s infinite;
+        }
     </style>
 </head>
 <body>
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+        <div class="container">
+            <div class="navbar-brand">
+                <span class="navbar-item">
+                    <a href="/">
+                        <strong>ACL Event Search</strong>
+                    </a>
+                </span>
+            </div>
+            <div class="navbar-menu">
+                <div class="navbar-end">
+                    <a class="navbar-item" href="/about">
+                        About
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
     <section class="section">
         <div class="container">
-            <h1 class="title mt-4">ACL Event Paper Search</h1>
+            <h3 class="title is-4">Load Papers from an ACL Event</h3>
             
             <!-- Load Papers Form -->
             <form id="eventForm" class="mb-4">
@@ -271,17 +319,25 @@
                 </div>
             </form>
 
-            <!-- Tabs -->
-            <div class="tabs">
+            <!-- Tabs (Initially hidden) -->
+            <div class="tabs is-hidden" id="tabs">
                 <ul>
-                    <li class="is-active" data-tab="papers"><a>Papers</a></li>
-                    <li data-tab="clusters"><a>Clusters</a></li>
+                    <li class="is-active" data-tab="papers">
+                        <a>
+                            Papers <span class="tag is-dark ml-2" id="papers-count"></span>
+                        </a>
+                    </li>
+                    <li data-tab="clusters">
+                        <a>
+                            Clusters <span class="tag is-dark ml-2" id="clusters-count"></span>
+                        </a>
+                    </li>
                 </ul>
             </div>
             
-            <!-- Papers View -->
+            <!-- Papers View (Initially hidden) -->
             <div id="papers-view" class="tab-content is-active">
-                <div class="box">
+                <div class="box is-hidden" id="search-container">
                     <h3 class="title is-4">Search Papers</h3>
                     <div class="field has-addons">
                         <div class="control is-expanded">
@@ -299,7 +355,7 @@
                     </div>
                     <p class="help">Use natural language to search for semantically similar papers</p>
                 </div>
-                <div id="papers-list" class="mt-4"></div>
+                <div id="papers-list" class="mt-4 is-hidden"></div>
                 <p id="results-count" class="is-hidden"></p>
                 <!-- Pagination -->
                 <nav class="pagination is-centered is-hidden" id="pagination-controls" role="navigation" aria-label="pagination">
@@ -311,7 +367,7 @@
                 </nav>
             </div>
             
-            <!-- Clusters View -->
+            <!-- Clusters View (Initially hidden) -->
             <div id="clusters-view" class="tab-content">
                 <div id="clusters-loading" class="is-hidden">
                     <h4 id="loading-message">Loading...</h4>
@@ -447,14 +503,14 @@
             // Get UI elements
             const button = document.getElementById('loadButton');
             const input = document.getElementById('eventUrl');
-            const paperView = document.querySelector('[data-tab="papers"]');
-            const searchBox = document.getElementById('search-container'); // Get the search box
+            const tabs = document.getElementById('tabs');
+            const searchContainer = document.getElementById('search-container');
+            const papersList = document.getElementById('papers-list');
             
             // Set loading state immediately
             button.classList.add('is-loading');
             button.disabled = true;
             input.disabled = true;
-            paperView.classList.add('is-loading');
             
             try {
                 showStatusMessage('Loading papers...', 'info');
@@ -473,6 +529,7 @@
                 }
                 
                 const data = await response.json();
+                papers = data; // Store papers globally
                 
                 // Show papers immediately on load
                 showPapers(data);
@@ -480,6 +537,14 @@
                 
                 // Start clustering in background
                 getClusters();
+                
+                // Show tabs and search box
+                tabs.classList.remove('is-hidden');
+                searchContainer.classList.remove('is-hidden');
+                papersList.classList.remove('is-hidden');
+                
+                // Update papers count in tab
+                document.getElementById('papers-count').textContent = data.length;
                 
                 // Show papers tab explicitly
                 switchView('papers');
@@ -492,7 +557,6 @@
                 button.classList.remove('is-loading');
                 button.disabled = false;
                 input.disabled = false;
-                paperView.classList.remove('is-loading');
             }
         }
         
@@ -522,9 +586,6 @@
             `).join('');
             
             resultsDiv.innerHTML = html;
-            
-            // Store loaded papers globally
-            papers = papersList;
         }
         
         function switchView(view) {
@@ -583,53 +644,62 @@
         }
         
         function displayClusters(clusters) {
-            const resultsDiv = document.getElementById('clusters-view');
+            const clustersContainer = document.getElementById('clusters-results');
+            const clustersView = document.getElementById('clusters-view');
+            
+            // Update clusters count in tab
+            document.getElementById('clusters-count').textContent = clusters.length;
+            
             if (!clusters || clusters.length === 0) {
-                resultsDiv.innerHTML = '<div class="notification">No clusters available.</div>';
+                clustersView.innerHTML = '<div class="notification">No clusters available.</div>';
                 return;
             }
+
+            let html = '<div class="clusters">';
             
-            // Sort clusters alphabetically, but keep "Uncategorized" at the end
+            // Sort clusters alphabetically by task name
             const sortedClusters = [...clusters].sort((a, b) => {
-                if (a.task === "Uncategorized") return 1;
-                if (b.task === "Uncategorized") return -1;
                 return a.task.localeCompare(b.task);
             });
             
-            let html = '<div class="clusters">';
             sortedClusters.forEach((cluster, index) => {
-                const clusterPapers = cluster.papers || [];
+                // Get the papers for this cluster using paper_ids
+                const clusterPapers = papers.filter(p => cluster.paper_ids.includes(p.id));
                 if (clusterPapers.length === 0) return;
                 
                 html += `
-                    <div class="box cluster">
+                    <div class="box cluster-box mb-4">
                         <div class="cluster-header" onclick="toggleCluster(this)">
-                            <h4 class="title is-4">
-                                <span class="icon">
-                                    <i class="fas fa-chevron-right"></i>
-                                </span>
-                                ${cluster.task}
-                                <span class="tag is-info is-light">${clusterPapers.length} papers</span>
-                                ${cluster.can_recluster ? `
-                                    <button class="button is-info recluster-btn ml-2" 
-                                            onclick="event.stopPropagation()"
-                                            data-iteration="1" 
-                                            data-paper-ids='${JSON.stringify(cluster.paper_ids)}'>
-                                        <span class="icon">
-                                            <i class="fas fa-sync-alt"></i>
-                                        </span>
-                                        <span>Recluster</span>
-                                    </button>` : ''}
-                            </h4>
-                        </div>
-                        <div class="cluster-papers">
-                            ${clusterPapers.map(paper => `
-                                <div class="paper-list-item">
-                                    <div class="paper-title" onclick="togglePaperAbstract(this.closest('.paper-list-item'))">
+                            <div class="level is-mobile">
+                                <div class="level-left">
+                                    <div class="level-item">
                                         <span class="icon">
                                             <i class="fas fa-chevron-right"></i>
                                         </span>
-                                        <a href="${paper.url}" target="_blank" onclick="event.stopPropagation()">${paper.title}</a>
+                                        <strong class="ml-2">${cluster.task}</strong>
+                                        <span class="tag is-light ml-2">${clusterPapers.length} papers</span>
+                                    </div>
+                                </div>
+                                <div class="level-right">
+                                    <button class="button is-small recluster-btn" 
+                                            data-paper-ids='${JSON.stringify(cluster.paper_ids)}'
+                                            data-iteration="${(cluster.iteration || 0) + 1}">
+                                        <span class="icon">
+                                            <i class="fas fa-random"></i>
+                                        </span>
+                                        <span>Recluster</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="cluster-papers">
+                            ${clusterPapers.map(paper => `
+                                <div class="paper-list-item" onclick="togglePaperAbstract(this)">
+                                    <div class="paper-header">
+                                        <span class="icon">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </span>
+                                        <a href="${paper.url}" target="_blank" onclick="event.stopPropagation()" class="paper-title">${paper.title}</a>
                                     </div>
                                     <div class="paper-abstract">
                                         ${paper.abstract}
@@ -641,10 +711,11 @@
                 `;
             });
             html += '</div>';
-            resultsDiv.innerHTML = html;
+            
+            clustersView.innerHTML = html;
             
             // Add click handlers for recluster buttons
-            resultsDiv.querySelectorAll('.recluster-btn').forEach(button => {
+            clustersView.querySelectorAll('.recluster-btn').forEach(button => {
                 button.addEventListener('click', async (e) => {
                     e.preventDefault();
                     const paperIds = JSON.parse(button.dataset.paperIds);
@@ -670,17 +741,7 @@
             try {
                 // Add loading state to button
                 button.classList.add('is-loading');
-                
-                // Add skeleton clusters below
-                const clustersContainer = document.querySelector('.clusters');
-                const skeletons = `
-                    <div class="skeleton-clusters">
-                        <div class="skeleton-cluster"></div>
-                        <div class="skeleton-cluster"></div>
-                        <div class="skeleton-cluster"></div>
-                    </div>
-                `;
-                clustersContainer.insertAdjacentHTML('beforeend', skeletons);
+                button.disabled = true;
                 
                 const response = await fetch('/recluster_uncategorized', {
                     method: 'POST',
@@ -700,50 +761,52 @@
                 
                 const data = await response.json();
                 
-                // Remove skeleton clusters
-                const skeletonContainer = document.querySelector('.skeleton-clusters');
-                if (skeletonContainer) {
-                    skeletonContainer.remove();
-                }
-                
                 if (data.clusters && data.clusters.length > 0) {
-                    // Remove the old uncategorized cluster
-                    const uncategorizedCluster = button.closest('.cluster');
-                    if (uncategorizedCluster) {
-                        uncategorizedCluster.remove();
+                    // Remove the old cluster
+                    const oldCluster = button.closest('.cluster-box');
+                    if (oldCluster) {
+                        oldCluster.remove();
                     }
                     
-                    // Add new clusters
+                    // Add new clusters to the container
+                    const clustersContainer = document.querySelector('.clusters');
                     data.clusters.forEach(cluster => {
+                        const clusterPapers = papers.filter(p => cluster.paper_ids.includes(p.id));
+                        if (clusterPapers.length === 0) return;
+                        
                         const clusterHtml = `
-                            <div class="box cluster">
+                            <div class="box cluster-box mb-4">
                                 <div class="cluster-header" onclick="toggleCluster(this)">
-                                    <h4 class="title is-4">
-                                        <span class="icon">
-                                            <i class="fas fa-chevron-right"></i>
-                                        </span>
-                                        ${cluster.task}
-                                        <span class="tag is-info is-light">${cluster.papers.length} papers</span>
-                                        ${cluster.can_recluster && iteration < 3 ? `
-                                            <button class="button is-info recluster-btn ml-2" 
-                                                    onclick="event.stopPropagation()"
-                                                    data-iteration="${iteration + 1}" 
-                                                    data-paper-ids='${JSON.stringify(cluster.paper_ids)}'>
-                                                <span class="icon">
-                                                    <i class="fas fa-sync-alt"></i>
-                                                </span>
-                                                <span>Recluster (${iteration + 1}/3)</span>
-                                            </button>` : ''}
-                                    </h4>
-                                </div>
-                                <div class="cluster-papers">
-                                    ${cluster.papers.map(paper => `
-                                        <div class="paper-list-item">
-                                            <div class="paper-title" onclick="togglePaperAbstract(this.closest('.paper-list-item'))">
+                                    <div class="level is-mobile">
+                                        <div class="level-left">
+                                            <div class="level-item">
                                                 <span class="icon">
                                                     <i class="fas fa-chevron-right"></i>
                                                 </span>
-                                                <a href="${paper.url}" target="_blank" onclick="event.stopPropagation()">${paper.title}</a>
+                                                <strong class="ml-2">${cluster.task}</strong>
+                                                <span class="tag is-light ml-2">${clusterPapers.length} papers</span>
+                                            </div>
+                                        </div>
+                                        <div class="level-right">
+                                            <button class="button is-small recluster-btn" 
+                                                    data-paper-ids='${JSON.stringify(cluster.paper_ids)}'
+                                                    data-iteration="${(cluster.iteration || 0) + 1}">
+                                                <span class="icon">
+                                                    <i class="fas fa-random"></i>
+                                                </span>
+                                                <span>Recluster</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="cluster-papers">
+                                    ${clusterPapers.map(paper => `
+                                        <div class="paper-list-item" onclick="togglePaperAbstract(this)">
+                                            <div class="paper-header">
+                                                <span class="icon">
+                                                    <i class="fas fa-chevron-right"></i>
+                                                </span>
+                                                <a href="${paper.url}" target="_blank" onclick="event.stopPropagation()" class="paper-title">${paper.title}</a>
                                             </div>
                                             <div class="paper-abstract">
                                                 ${paper.abstract}
@@ -758,31 +821,31 @@
                     
                     // Add click handlers for new recluster buttons
                     clustersContainer.querySelectorAll('.recluster-btn').forEach(btn => {
-                        btn.addEventListener('click', async (e) => {
-                            e.preventDefault();
-                            const paperIds = JSON.parse(btn.dataset.paperIds);
-                            const iteration = parseInt(btn.dataset.iteration);
-                            await reclusterPapers(btn, paperIds, iteration);
-                        });
+                        if (!btn.hasListener) {
+                            btn.addEventListener('click', async (e) => {
+                                e.preventDefault();
+                                const paperIds = JSON.parse(btn.dataset.paperIds);
+                                const iteration = parseInt(btn.dataset.iteration);
+                                await reclusterPapers(btn, paperIds, iteration);
+                            });
+                            btn.hasListener = true;
+                        }
                     });
                     
+                    // Update clusters count in tab
+                    const clusterBoxes = document.querySelectorAll('.cluster-box');
+                    document.getElementById('clusters-count').textContent = clusterBoxes.length;
+                    
                     showStatusMessage('Reclustering complete!', 'success');
-                } else {
-                    showStatusMessage('No new clusters were created.', 'info');
                 }
                 
             } catch (error) {
                 console.error('Error:', error);
                 showStatusMessage(error.message, 'danger');
-                
-                // Remove skeleton clusters on error
-                const skeletonContainer = document.querySelector('.skeleton-clusters');
-                if (skeletonContainer) {
-                    skeletonContainer.remove();
-                }
-                
+            } finally {
                 // Remove loading state from button
                 button.classList.remove('is-loading');
+                button.disabled = false;
             }
         }
 

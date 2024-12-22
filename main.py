@@ -201,6 +201,10 @@ async def read_root():
     """Serve the main HTML page."""
     return FileResponse("static/index.html")
 
+@app.get("/about")
+async def read_about():
+    return FileResponse("static/about.html")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

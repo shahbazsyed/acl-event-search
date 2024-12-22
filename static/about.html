@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - ACL Event Search</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar" role="navigation" aria-label="main navigation">
+        <div class="container">
+            <div class="navbar-brand">
+                <span class="navbar-item">
+                    <a href="/">
+                        <strong>ACL Event Search</strong>
+                    </a>
+                </span>
+            </div>
+            <div class="navbar-menu">
+                <div class="navbar-end">
+                    <a class="navbar-item" href="/">
+                        Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="section">
+        <div class="container">
+            <div class="content">
+                <p>
+                    ACL Event Search is a semantic search and clustering tool designed to help you navigate the vast collection of research papers in the ACL Anthology. It leverages advanced techniques to make discovering and understanding research easier and more efficient.
+                </p>
+
+                <h3 class="title is-4">Key Features</h3>
+                <ul>
+                    <li>
+                        <strong>Semantic Search:</strong> Go beyond keyword matching. Find papers based on meaning and context using natural language queries.
+                    </li>
+                    <li>
+                        <strong>Automated Clustering:</strong> Discover underlying research themes. Papers are automatically grouped into clusters based on their content.
+                    </li>
+                    <li>
+                        <strong>Interactive Exploration:</strong> Dive deeper into topics. Explore clusters, view papers within them, and refine the organization to your needs.
+                    </li>
+                    <li>
+                        <strong>Paper Details:</strong> Access essential information. View paper titles, abstracts, authors, and direct links to the original publications on the ACL Anthology.
+                    </li>
+                </ul>
+
+                <h3 class="title is-4">Getting Started</h3>
+                <ol>
+                    <li>
+                        <strong>Load an Event:</strong> Enter the URL of an ACL Anthology event (e.g., <a href="https://aclanthology.org/events/naacl-2024/">https://aclanthology.org/events/naacl-2024/</a>) and click "Load Event".
+                    </li>
+                    <li>
+                        <strong>Search:</strong> Use the search bar to find papers relevant to your interests using natural language queries.
+                    </li>
+                    <li>
+                        <strong>Explore Clusters:</strong> View the automatically generated clusters to discover research topics and the papers associated with them.
+                    </li>
+                    <li>
+                        <strong>Refine Clusters:</strong> Click the "Recluster" button on a cluster to break it down into more specific subtopics.
+                    </li>
+                </ol>
+
+                <h3 class="title is-4">Usage Tips</h3>
+                <ul>
+                    <li>Use descriptive and specific search queries to get the most relevant results.</li>
+                    <li>Click on cluster names to expand or collapse the list of papers within them.</li>
+                    <li>Click on a paper's title to reveal its abstract.</li>
+                    <li>Experiment with reclustering multiple times to fine-tune the organization of papers.</li>
+                    <li><strong>Note:</strong> Each reclustering operation uses your Gemini API credits.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+</body>
+</html>
