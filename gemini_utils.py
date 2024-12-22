@@ -7,12 +7,13 @@ from pydantic import BaseModel, Field
 import numpy as np
 import hdbscan
 from dotenv import load_dotenv
+
 load_dotenv()
 from sklearn.preprocessing import normalize
-from paper_utils import get_text_for_embedding, model
 
 # Initialize logging
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # Initialize Gemini
 import google.generativeai as genai
@@ -62,8 +63,9 @@ Instructions:
 }}
 
 IMPORTANT: 
-- Return ONLY the JSON object, no other text or formatting
-- Do NOT use trailing commas in JSON arrays or objects
+- Return ONLY the JSON object, no other text or formatting.
+- Do NOT include any backticks (```) or the word "json" in the response.
+- Do NOT use trailing commas in JSON arrays or objects.
 - Make sure the JSON is complete and valid'''
 
 SUMMARY_PROMPT = """You are an expert in Natural Language Processing research.
@@ -94,7 +96,8 @@ Instructions:
 3. Focus on the concrete task (e.g., "Multilingual Named Entity Recognition" instead of just "NLP")
 4. If papers seem too diverse, focus on the dominant theme
 
-Return ONLY a single line with the specific task name, no additional text or explanation.'''
+Return ONLY a single line with the specific task name, no additional text or explanation.
+Do NOT include any backticks (```) or the word "json" in the response.'''
 
 LARGE_CLUSTER_PROMPT = """Given a list of academic papers, create focused clusters based on their research areas and topics.
 Requirements:
@@ -118,6 +121,9 @@ Return ONLY a JSON object with this exact structure:
         ...
     ]
 }}
+IMPORTANT:
+- Return ONLY the JSON object, no other text or formatting.
+- Do NOT include any backticks (```) or the word "json" in the response.
 """
 
 MERGE_CLUSTERS_PROMPT = '''You are an expert in Natural Language Processing research.
@@ -144,57 +150,78 @@ IMPORTANT: Return ONLY a JSON object with this structure (no additional text):
   ]
 }}
 
-Do not include any explanatory text, markdown formatting, or code blocks. Return ONLY the JSON object.
+Do not include any explanatory text, markdown formatting, or code blocks.
+Return ONLY the JSON object.
+Do NOT include any backticks (```) or the word "json" in the response.
 '''
 
 async def extract_json_from_response(response_text: str) -> Dict:
     """Extract JSON from a response that might contain markdown."""
     try:
-        # First try direct JSON parsing
-        try:
-            return json.loads(response_text)
-        except json.JSONDecodeError:
-            pass
-            
-        # Try to extract JSON from markdown code block
-        if '```json' in response_text:
-            # Extract content between ```json and ```
-            pattern = r'```json\s*(.*?)\s*```'
-            matches = re.findall(pattern, response_text, re.DOTALL)
-            if matches:
-                json_str = matches[0]
-                # Clean up common JSON issues
-                json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)  # Remove trailing commas
-                json_str = re.sub(r',\s*$', '', json_str)  # Remove trailing comma at end of string
-                try:
-                    return json.loads(json_str)
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse extracted JSON: {e}")
-                    
-                    # Try to salvage partial JSON
-                    try:
-                        # Find complete cluster objects
-                        clusters = []
-                        cluster_pattern = r'\{\s*"task":\s*"([^"]+)",\s*"paper_ids":\s*\[((?:"[^"]+",?\s*)*)\]\s*\}'
-                        for match in re.finditer(cluster_pattern, json_str):
-                            task = match.group(1)
-                            paper_ids = re.findall(r'"([^"]+)"', match.group(2))
-                            if task and paper_ids:
-                                clusters.append({
-                                    "task": task,
-                                    "paper_ids": paper_ids
-                                })
-                        if clusters:
-                            return {"clusters": clusters}
-                    except Exception as e:
-                        logger.error(f"Failed to salvage partial JSON: {e}")
-                    raise
-                    
-        raise ValueError("No valid JSON found in response")
+        cleaned_text = response_text.strip()
+
+        # Remove any markdown code blocks ```json...```
+        cleaned_text = re.sub(r'```json.*?```', '', cleaned_text, flags=re.DOTALL | re.IGNORECASE).strip()
+        cleaned_text = cleaned_text.strip("`")  # Remove lone backticks
+
+        # Remove non-json characters before or after braces
+        start_index = cleaned_text.find("{")
+        end_index = cleaned_text.rfind("}")
+
+        if start_index != -1 and end_index != -1:
+            cleaned_text = cleaned_text[start_index:end_index + 1]
+        else:
+           logger.warning(f"Start or end braces not found, attempting to salvage partial json: {response_text[:500]}...")
+           
+           # Salvage JSON if it starts with clusters
+           if cleaned_text.lower().startswith("clusters:"):
+               cleaned_text = "{" + cleaned_text + "}"
         
+        # Handle case insensitivity for clusters key
+        cleaned_text = cleaned_text.replace('"Clusters"', '"clusters"')
+        cleaned_text = cleaned_text.replace("'Clusters'", "'clusters'")
+        
+        # Try parsing as JSON
+        try:
+           return json.loads(cleaned_text)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON: {e}, Attempted JSON string: {cleaned_text}, Response Text: {response_text}")
+           
+            # Attempt to salvage
+            try:
+                # Find complete cluster objects
+                clusters = []
+                cluster_pattern = r'\{\s*"task":\s*"([^"]+)",\s*"paper_ids":\s*\[((?:"[^"]+",?\s*)*)\]\s*\}'
+                for match in re.finditer(cluster_pattern, cleaned_text):
+                    task = match.group(1)
+                    paper_ids = re.findall(r'"([^"]+)"', match.group(2))
+                    if task and paper_ids:
+                        clusters.append({
+                            "task": task,
+                            "paper_ids": paper_ids
+                        })
+                if clusters:
+                     logger.info(f"Successfully salvaged {len(clusters)} clusters")
+                     return {"clusters": clusters}
+            except Exception as salvage_e:
+                logger.error(f"Failed to salvage partial JSON: {salvage_e}", exc_info=True)
+            
+            # Attempt to salvage a partial JSON object with a task that has not finished
+            try:
+               # Use regex to find partial cluster object that has a task but no end quote
+               partial_cluster_pattern = r'\{\s*"task":\s*"([^"]+)"'
+               match = re.search(partial_cluster_pattern, cleaned_text)
+               if match:
+                    task = match.group(1)
+                    logger.info(f"Successfully salvaged one partial cluster object with task: {task}")
+                    return {"clusters": [{"task": task, "paper_ids": []}]}
+               
+            except Exception as partial_e:
+               logger.error(f"Failed to salvage partial cluster object {partial_e}", exc_info=True)
+            
+            raise ValueError(f"Could not extract valid JSON. Response text: {response_text}")
     except Exception as e:
-        logger.error(f"Error extracting JSON from response: {str(e)}")
-        logger.error(f"Response text: {response_text[:500]}...")
+        logger.error(f"JSON extraction error: {str(e)}", exc_info=True)
         raise
 
 async def process_batch(batch: List[Dict[str, Any]], prompt_template: str, retry_count=3, initial_delay=1) -> Dict:
@@ -205,7 +232,7 @@ async def process_batch(batch: List[Dict[str, Any]], prompt_template: str, retry
             papers_json = json.dumps(batch, ensure_ascii=False, indent=2)
             prompt = prompt_template.format(papers_json=papers_json)
             
-            logger.info(f"Sending prompt (length: {len(prompt)}), batch size: {len(batch)}")
+            logger.info(f"Sending batch to Gemini (attempt {attempt+1}/{retry_count}), prompt length: {len(prompt)}, batch size: {len(batch)}")
             
             response = await model.generate_content_async(
                 prompt,
@@ -267,13 +294,13 @@ async def get_cluster_task(papers: List[Dict[str, Any]]) -> str:
 async def recluster_large_group(papers: List[Dict[str, Any]], max_papers_per_batch: int = 50) -> List[Cluster]:
     """Use Gemini to recluster a large group of papers."""
     try:
-        logger.info(f"  - Preparing {len(papers)} papers for Gemini...")
+        logger.info(f"  - Preparing {len(papers)} papers for Gemini reclustering...")
         
-        # Prepare paper data with titles and abstracts
+        # Prepare paper data with titles only
         papers_data = [{
             'id': paper.get('id', ''),
             'title': paper.get('title', ''),
-            'abstract': paper.get('abstract', '')[:300]  # Further truncate abstract to keep prompt size manageable
+            'abstract': paper.get('abstract', '')[:100]  #Further truncate abstract for performance 
         } for paper in papers]
         
         # Process in smaller batches to avoid timeouts
@@ -409,14 +436,14 @@ async def cluster_papers(papers: List[Dict[str, Any]]) -> ClusterResponse:
         
         # Process clusters in parallel
         tasks = []
-        logger.info(f"\n4. Sending {len(clusters_dict)} clusters to Gemini for naming...")
+        logger.info(f"\n4. Sending {len(clusters_dict)} HDBSCAN clusters to Gemini for naming...")
         for label, cluster_papers in clusters_dict.items():
             tasks.append(get_cluster_task(cluster_papers))
-            
+        
         # Wait for all cluster naming tasks to complete
         cluster_names = await asyncio.gather(*tasks)
         
-        # Create final clusters list
+        # Create initial clusters
         final_clusters = []
         for (label, cluster_papers), task_name in zip(clusters_dict.items(), cluster_names):
             paper_ids = [p.get('id', '') for p in cluster_papers]
@@ -425,15 +452,73 @@ async def cluster_papers(papers: List[Dict[str, Any]]) -> ClusterResponse:
                 paper_ids=paper_ids,
                 papers=cluster_papers
             ))
-            
-        # Add uncategorized papers if any exist
+        
+        # Process uncategorized papers if any
         if uncategorized_papers:
-            final_clusters.append(Cluster(
-                task="Uncategorized",
-                paper_ids=[p.get('id', '') for p in uncategorized_papers],
-                papers=uncategorized_papers
-            ))
+            logger.info(f"\n5. Reclustering {len(uncategorized_papers)} uncategorized papers with Gemini...")
             
+            # Apply HDBSCAN to uncategorized papers
+            logger.info(f"  - Applying HDBSCAN to uncategorized papers...")
+            uncategorized_embeddings = np.array([paper.get('embedding', []) for paper in uncategorized_papers], dtype=np.float32)
+            if len(uncategorized_embeddings) == 0 or len(uncategorized_embeddings[0]) == 0:
+                logger.warning(f"  - Uncategorized papers do not have valid embeddings, re-clustering with gemini without HDBSCAN")
+                uncategorized_clusters = await recluster_large_group(uncategorized_papers)
+            else:
+                uncategorized_embeddings = normalize(uncategorized_embeddings)
+                uncategorized_clusterer = hdbscan.HDBSCAN(
+                    min_cluster_size=5,
+                    min_samples=3,
+                    metric='euclidean',
+                    cluster_selection_method='eom'
+                )
+                uncategorized_labels = uncategorized_clusterer.fit_predict(uncategorized_embeddings)
+                unique_uncat_labels = set(uncategorized_labels)
+                n_uncat_noise = sum(1 for label in uncategorized_labels if label == -1)
+                n_uncat_clusters = len(unique_uncat_labels) - (1 if -1 in unique_uncat_labels else 0)
+                
+                logger.info(f"    - HDBSCAN found {n_uncat_clusters} subclusters and {n_uncat_noise} unclustered papers")
+                
+                uncat_clusters_dict = {}
+                
+                for idx, label in enumerate(uncategorized_labels):
+                   if label != -1:  # Noise points
+                       if label not in uncat_clusters_dict:
+                            uncat_clusters_dict[label] = []
+                       uncat_clusters_dict[label].append(uncategorized_papers[idx])
+                
+                
+                uncat_tasks = []
+                logger.info(f"    - Sending {len(uncat_clusters_dict)} subclusters to Gemini for naming...")
+                for label, cluster_papers in uncat_clusters_dict.items():
+                    uncat_tasks.append(get_cluster_task(cluster_papers))
+                    
+                # Wait for all cluster naming tasks to complete
+                uncat_cluster_names = await asyncio.gather(*uncat_tasks)
+                
+                for (label, cluster_papers), task_name in zip(uncat_clusters_dict.items(), uncat_cluster_names):
+                    paper_ids = [p.get('id', '') for p in cluster_papers]
+                    final_clusters.append(Cluster(
+                        task=task_name,
+                        paper_ids=paper_ids,
+                        papers=cluster_papers
+                    ))
+                   
+                # Put noise points in to a single cluster
+                noise_points = [uncategorized_papers[idx] for idx, label in enumerate(uncategorized_labels) if label == -1]
+                if noise_points:
+                    final_clusters.append(Cluster(
+                      task="Uncategorized",
+                      paper_ids=[p.get('id','') for p in noise_points],
+                      papers = noise_points
+                      ))
+        
+        # Sort clusters by size (descending) but keep Uncategorized at end
+        logger.info("\n6. Finalizing clusters...")
+        final_clusters.sort(key=lambda x: (
+            x.task == "Uncategorized",  # False sorts before True
+            -len(x.paper_ids)  # Negative for descending order
+        ))
+        
         # Log final clustering results
         logger.info("\nFinal Clustering Results:")
         logger.info(f"  - HDBSCAN identified: {n_clusters} clusters")
@@ -450,7 +535,11 @@ async def cluster_papers(papers: List[Dict[str, Any]]) -> ClusterResponse:
         logger.info("Clustering complete!")
         logger.info(f"{'='*50}\n")
             
-        return ClusterResponse(clusters=final_clusters)
+        return ClusterResponse(clusters=final_clusters, stats={
+            "initial_hdbscan_clusters": n_clusters,
+            "total_papers": len(papers),
+            "unclustered_papers": n_noise
+        })
         
     except Exception as e:
         logger.error(f"Error in cluster_papers: {str(e)}", exc_info=True)
